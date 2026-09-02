@@ -1872,7 +1872,7 @@ function settingsHtml() {
     <section class="set-card" id="sec-about">
       <div class="sc-t">关于</div>
       <div class="about-grid">
-        <span>版本</span><span>v0.24.0</span>
+        <span>版本</span><span>v0.24.1</span>
         <span>文档 / 分块</span><span id="abDocs">—</span>
         <span>目录监听</span><span id="abWatch">—</span>
         <span>监听路径</span><span id="abDir" style="word-break:break-all">—</span>
@@ -2507,6 +2507,21 @@ bindDocs();
 bindMobile();
 /* ---------- 首次启动配置向导 ---------- */
 
+/* 预设服务商：任意 OpenAI 兼容服务选「自定义」手填；key 同用（llm+embed），异构服务商去设置页细配 */
+const OB_PROVIDERS = {
+  zhipu: {
+    keyPh: "粘贴智谱 API Key", keyLink: "https://open.bigmodel.cn/usercenter/apikeys",
+    llm_base_url: "https://open.bigmodel.cn/api/paas/v4", llm_model: "glm-4.6",
+    embed_base_url: "https://open.bigmodel.cn/api/paas/v4", embed_model: "embedding-3",
+  },
+  siliconflow: {
+    keyPh: "粘贴硅基流动 API Key", keyLink: "https://cloud.siliconflow.cn/account/ak",
+    llm_base_url: "https://api.siliconflow.cn/v1", llm_model: "deepseek-ai/DeepSeek-V3.1",
+    embed_base_url: "https://api.siliconflow.cn/v1", embed_model: "BAAI/bge-m3",
+    embed_dim: 1024,  // bge-m3 维度；不写会与集合默认 2048 冲突触发重建
+  },
+};
+
 function maybeOnboard() {
   if (localStorage.getItem("lib_onboarded")) return;
   const h = state.health;
@@ -2523,21 +2538,42 @@ function closeOnboard() {
 function bindOnboard() {
   const wrap = $("#onboard");
   if (!wrap) return;
-  $("#obSkip").addEventListener("click", closeOnboard);
+  let prov = "zhipu";
+  const chips = $$("#obProv .ob-chip");
+  const syncProv = () => {
+    const p = OB_PROVIDERS[prov];
+    $("#obKey").placeholder = p ? p.keyPh : "粘贴 API Key";
+    if (p) $("#obKeyLink").href = p.keyLink;
+    $("#obKeyLink").style.display = p ? "" : "none";
+    $("#obCustom").hidden = prov !== "custom";
+  };
+  chips.forEach((c) => c.addEventListener("click", () => {
+    prov = c.dataset.p;
+    chips.forEach((x) => x.classList.toggle("on", x === c));
+    syncProv();
+  }));
+  syncProv();
+
   $("#obGo").addEventListener("click", async () => {
     const key = $("#obKey").value.trim();
     if (!key) { toast("先粘贴 API Key，或点下方跳过", "err"); return; }
+    const body = { llm_api_key: key, embed_api_key: key };  // 同 key 双用；异构需求去设置页
+    if (prov === "custom") {
+      const base = $("#obBaseUrl").value.trim().replace(/\/+$/, "");
+      const lm = $("#obLlmModel").value.trim();
+      const em = $("#obEmbedModel").value.trim();
+      if (!base || !lm) { toast("自定义服务需要填 Base URL 和对话模型", "err"); return; }
+      Object.assign(body, { llm_base_url: base, llm_model: lm });
+      if (em) Object.assign(body, { embed_base_url: base, embed_model: em });
+    } else {
+      const p = OB_PROVIDERS[prov];
+      Object.assign(body, {
+        llm_base_url: p.llm_base_url, llm_model: p.llm_model,
+        embed_base_url: p.embed_base_url, embed_model: p.embed_model,
+      });
+      if (p.embed_dim) body.embed_dim = p.embed_dim;
+    }
     try {
-      // 只补空缺的 base_url/model，不覆盖用户已有的服务商配置
-      const cfg = await (await api("/config")).json();
-      const ZHIPU = "https://open.bigmodel.cn/api/paas/v4";
-      const body = { llm_api_key: key, embed_api_key: key };
-      for (const [k, v] of Object.entries({
-        llm_base_url: ZHIPU, llm_model: "glm-4.6",
-        embed_base_url: ZHIPU, embed_model: "embedding-3",
-      })) {
-        if (!cfg[k]) body[k] = v;
-      }
       await api("/config", { method: "PUT", body: JSON.stringify(body) });
       closeOnboard();
       toast("模型已配置，开始提问吧");

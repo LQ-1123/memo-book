@@ -1,7 +1,7 @@
 /* 个人知识库 Service Worker：外壳缓存（离线可装可开），API 永远走网络 */
 "use strict";
 
-const VERSION = "app-shell-v54";
+const VERSION = "app-shell-v55";
 const SHELL = [
   "/",
   "/css/app.css",

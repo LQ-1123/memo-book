@@ -200,10 +200,22 @@
   <div class="ob-card">
     <img class="ob-logo" src="/icons/logo.png" alt="">
     <h1 class="ob-h">欢迎来到个人知识库</h1>
-    <p class="ob-d">最后一步：填入模型服务的 API Key，问答与语义检索即刻可用。<br>默认使用智谱（GLM）；其他服务商可稍后在「设置 → 模型服务」配置。</p>
+    <p class="ob-d">最后一步：选择模型服务并填入 API Key，问答与语义检索即刻可用。<br>任意 OpenAI 兼容服务均可；稍后可在「设置 → 模型服务」随时更换。</p>
+    <div class="ob-chips" id="obProv">
+      <button type="button" class="ob-chip on" data-p="zhipu">智谱 GLM</button>
+      <button type="button" class="ob-chip" data-p="siliconflow">硅基流动</button>
+      <button type="button" class="ob-chip" data-p="custom">自定义</button>
+    </div>
     <div class="ob-field">
-      <input type="password" id="obKey" placeholder="粘贴智谱 API Key" autocomplete="off">
-      <a class="ob-link" href="https://open.bigmodel.cn/usercenter/apikeys" target="_blank" rel="noopener">去获取 ↗</a>
+      <input type="password" id="obKey" placeholder="粘贴 API Key" autocomplete="off">
+      <a class="ob-link" id="obKeyLink" href="https://open.bigmodel.cn/usercenter/apikeys" target="_blank" rel="noopener">去获取 ↗</a>
+    </div>
+    <div id="obCustom" hidden>
+      <input class="ob-in" id="obBaseUrl" placeholder="Base URL（OpenAI 兼容，如 https://api.example.com/v1）">
+      <div class="ob-2col">
+        <input class="ob-in" id="obLlmModel" placeholder="对话模型，如 gpt-4o">
+        <input class="ob-in" id="obEmbedModel" placeholder="嵌入模型（可选）">
+      </div>
     </div>
     <button class="btn primary ob-go" id="obGo">开始使用</button>
     <button class="ob-skip" id="obSkip">跳过，稍后在设置里配置</button>
