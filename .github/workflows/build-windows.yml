@@ -1,0 +1,49 @@
+# Windows 桌面版打包：GitHub 托管 runner 上跑 scripts/build_app_win.ps1，
+# 产物 personal-library-win64.zip（解压双击 personal-library\personal-library.exe）。
+#
+# 触发：
+#   ① Actions 页面手动 Run workflow（workflow_dispatch）
+#   ② 推送 v* 标签自动构建，并把 zip 挂到该 tag 的 Release
+#
+# 目标机器需 WebView2 运行时（Win10/11 一般自带）；数据目录在 %APPDATA%\personal-library。
+name: Build Windows EXE
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - name: 构建（依赖 → 图标 → ffmpeg → PyInstaller → zip）
+        env:
+          PIP_INDEX_URL: https://pypi.org/simple  # 海外 runner 用官方源更快
+        shell: pwsh
+        run: .\scripts\build_app_win.ps1
+
+      - name: 上传构建产物（artifact，保留 30 天）
+        uses: actions/upload-artifact@v4
+        with:
+          name: personal-library-win64
+          path: dist/personal-library-win64.zip
+          if-no-files-found: error
+
+      - name: 挂到 Release（仅 tag 触发时）
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/personal-library-win64.zip
+          body: |
+            Windows 桌面版：下载 personal-library-win64.zip，解压后双击 `personal-library\personal-library.exe`。
+            需要 WebView2 运行时（Win10/11 一般自带）；数据目录在 `%APPDATA%\personal-library`。
