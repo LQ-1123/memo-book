@@ -1,12 +1,13 @@
 /* 个人知识库 Service Worker：外壳缓存（离线可装可开），API 永远走网络 */
 "use strict";
 
-const VERSION = "app-shell-v50";
+const VERSION = "app-shell-v54";
 const SHELL = [
   "/",
   "/css/app.css",
   "/js/app.js",
   "/js/ai-orb.js",
+  "/js/vendor/qrcode.min.js",
   "/manifest.webmanifest",
   "/icons/icon-192.png",
   "/icons/icon-512.png",

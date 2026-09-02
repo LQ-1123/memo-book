@@ -89,9 +89,11 @@ def prepare_environment(data_dir: Path) -> Bootstrap:
             keyfile.write_text(key + "\n", encoding="utf-8")
         bs.generated_key = key
 
-    # 桌面默认只监听回环（安全）；用户显式配置 APP_HOST 才对外
+    # 桌面默认对外监听：手机扫码配对的前提；数据接口全有自动生成的 key 把门，仅回环免认证
     if not _has_config(data_dir, "APP_HOST"):
-        os.environ["APP_HOST"] = "127.0.0.1"
+        os.environ["APP_HOST"] = "0.0.0.0"
+    bs.host = os.environ["APP_HOST"]  # 端口探测必须与 uvicorn 实际绑定同 host，
+    # 否则在回环上探测通、绑定通配地址时 EADDRINUSE（曾致窗口开到别的服务上）
 
     # 桌面默认用内嵌向量库（无需 Docker）；服务器形态可在 .env 显式关闭
     if not _has_config(data_dir, "QDRANT_EMBEDDED"):
@@ -124,9 +126,9 @@ def prepare_environment(data_dir: Path) -> Bootstrap:
 
 def _can_bind(host: str, port: int) -> bool:
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         try:
             s.bind((host, port))
+            s.listen(1)  # 不设 SO_REUSEADDR：它会把「通配地址已监听」误判为可用
             return True
         except OSError:
             return False
@@ -152,6 +154,7 @@ class SingleInstance:
         self._fh = None
 
     def acquire(self) -> bool:
+        self._path.parent.mkdir(parents=True, exist_ok=True)  # 首次运行时数据目录尚不存在
         self._fh = open(self._path, "w")  # noqa: SIM115 - 生命周期与进程一致
         try:
             if fcntl is not None:

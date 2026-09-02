@@ -28,13 +28,17 @@ binaries = []
 hiddenimports = []
 
 # 重依赖整包收集：ONNX 模型随包内置、动态导入的子模块多
-for pkg in ("rapidocr_onnxruntime", "onnxruntime", "jieba", "trafilatura", "openai", "qdrant_client"):
+# magika：markitdown 的文件类型识别，模型目录（models/standard_v3_3）必须随包，缺了 docx/xlsx 全部入库失败
+for pkg in ("rapidocr_onnxruntime", "onnxruntime", "jieba", "trafilatura", "openai", "qdrant_client", "magika"):
     d, b, h = collect_all(pkg)
     datas += d
     binaries += b
     hiddenimports += h
 
 hiddenimports += collect_submodules("markitdown")      # docx/pptx/xlsx 惰性加载
+# markitdown 各转换器的可选依赖（惰性导入，静态分析收不到；缺了对应格式入库报 MissingDependencyException）
+for _opt in ("openpyxl", "pptx", "mammoth", "markdownify"):
+    hiddenimports += collect_submodules(_opt)
 hiddenimports += collect_submodules("webview.platforms")  # pywebview 平台后端按平台动态选择
 hiddenimports += collect_submodules("watchdog")        # 文件监听按平台动态选 observer
 hiddenimports += [
@@ -54,7 +58,8 @@ a = Analysis(
     hiddenimports=hiddenimports,
     hookspath=[],
     runtime_hooks=[],
-    excludes=["tkinter", "matplotlib", "pandas", "IPython", "pytest"],
+    # pandas 不能排除：markitdown 的 xlsx 转换器依赖它（excludes 优先于 hiddenimports）
+    excludes=["tkinter", "matplotlib", "IPython", "pytest"],
     noarchive=False,
 )
 pyz = PYZ(a.pure)

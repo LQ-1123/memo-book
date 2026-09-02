@@ -12,8 +12,8 @@ macOS 产出 `personal-library.app`，Windows 产出 `personal-library.exe`。
 | 数据目录 | 仓库 `data/` | macOS `~/Library/Application Support/personal-library/`；Windows `%APPDATA%\personal-library`（可用环境变量 `PL_DATA_DIR` 覆盖） |
 | 配置 | 仓库 `.env` | 数据目录里的 `.env`（可选；一切也可在网页「设置」里热配置） |
 | 监听 | `WATCH_DIRS` | 首次运行自动建 `~/Documents/personal-library-docs` 并监听；可在设置页改 |
-| 端口 | 固定 8790 | 默认 8790，被占自动顺延；仅监听 127.0.0.1（`.env` 写 `APP_HOST=0.0.0.0` 可开局域网） |
-| API 口令 | `.env` 的 `API_KEYS` | 首次运行自动生成（存数据目录 `api_key.txt`），窗口自动带 key 登录 |
+| 端口 | 固定 8790 | 默认 8790，被占自动顺延；默认监听 `0.0.0.0`（本机免配置，局域网设备靠口令把门；`.env` 写 `APP_HOST=127.0.0.1` 可收回仅本机） |
+| API 口令 | `.env` 的 `API_KEYS` | 首次运行自动生成（存数据目录 `api_key.txt`），本机免认证；手机在「设置 → 手机访问」扫码即用，全程无需填写 |
 | ffmpeg | 需自装（B站无字幕兜底） | **内置**静态 ffmpeg |
 
 桌面版的服务与 API 和服务器版完全一致（同一套 `app/` 代码），PWA、分享入库等能力照旧——局域网开启后手机可继续用。
@@ -62,7 +62,7 @@ SQLite 是唯一事实源，向量丢失后 `POST /api/v1/ingest/reconcile?force
 | 变量 | 作用 |
 |---|---|
 | `PL_DATA_DIR` | 覆盖数据目录位置 |
-| `APP_HOST=0.0.0.0` | 局域网可访问（配合手机 PWA） |
+| `APP_HOST=127.0.0.1` | 收回为仅本机监听（默认 0.0.0.0，配合「设置 → 手机访问」扫码） |
 | `APP_PORT` | 固定端口（默认 8790 自动顺延） |
 | `API_KEYS` | 自定义口令（否则首启自动生成） |
 | `QDRANT_EMBEDDED` | 默认桌面即为 true；服务器形态置 false 并配 `QDRANT_URL` |

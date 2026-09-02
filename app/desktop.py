@@ -102,6 +102,13 @@ def main() -> None:
         lock.release()
         return
 
+    if not thread.is_alive():
+        # bind 失败等致命错误会让 uvicorn 线程立即退出；此时 8790 上的 health
+        # 可能来自别的服务，绝不能把窗口开过去
+        log.error("服务线程启动失败（端口 %s 被占用？），退出", bs.port)
+        lock.release()
+        sys.exit(1)
+
     if not _wait_health(bs.port):
         log.error("服务在 %.0f 秒内未就绪，退出", POLL_SECONDS)
         lock.release()

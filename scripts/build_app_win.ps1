@@ -53,6 +53,21 @@ if (-not (Test-Path "resources\ffmpeg\windows\ffmpeg.exe")) {
 }
 else { Write-Host "已存在，跳过" }
 
+# ffprobe（可选件，仅部分后处理用）：npmmirror 的 @ffprobe-installer npm 包内二进制（国内快），失败不阻塞
+if (-not (Test-Path "resources\ffmpeg\windows\ffprobe.exe")) {
+    try {
+        Write-Host "下载 ffprobe（npmmirror 国内源，约 29MB）"
+        Invoke-WebRequest -Uri "https://registry.npmmirror.com/@ffprobe-installer/win32-x64/-/win32-x64-5.1.0.tgz" -OutFile "resources\ffmpeg\windows\ffprobe.tgz" -TimeoutSec 120
+        tar -xzf "resources\ffmpeg\windows\ffprobe.tgz" -C "resources\ffmpeg\windows"
+        $probe = Get-ChildItem "resources\ffmpeg\windows\package" -Recurse -Filter "ffprobe.exe" | Select-Object -First 1
+        if ($probe) { Copy-Item $probe.FullName "resources\ffmpeg\windows\ffprobe.exe" }
+    } catch { Write-Host "  ffprobe 获取失败（可选，不影响核心功能）：$_" }
+    finally {
+        if (Test-Path "resources\ffmpeg\windows\package") { Remove-Item -Recurse -Force "resources\ffmpeg\windows\package" }
+        if (Test-Path "resources\ffmpeg\windows\ffprobe.tgz") { Remove-Item -Force "resources\ffmpeg\windows\ffprobe.tgz" }
+    }
+}
+
 # ---- [4/5] PyInstaller ----
 Write-Host "==> [4/5] PyInstaller 打包（几分钟）"
 if (Test-Path "build") { Remove-Item -Recurse -Force "build" }

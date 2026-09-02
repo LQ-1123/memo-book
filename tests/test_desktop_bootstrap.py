@@ -53,7 +53,8 @@ def test_first_run_generates_key_and_watch_dir(workspace):
     assert os.environ["API_KEYS"] == bs.generated_key
     assert bs.watch_dir_created and bs.watch_dir_created.is_dir()
     assert os.environ["WATCH_DIRS"] == str(bs.watch_dir_created)
-    assert os.environ["APP_HOST"] == "127.0.0.1"  # 桌面默认回环
+    assert os.environ["APP_HOST"] == "0.0.0.0"  # 桌面默认对外（手机扫码前提），key 把门
+    assert bs.host == "0.0.0.0"  # 端口探测 host 必须与 uvicorn 绑定一致
     assert os.environ["QDRANT_EMBEDDED"] == "true"  # 桌面默认内嵌向量库
     assert (workspace / "server.json").exists()
 
@@ -107,6 +108,27 @@ def test_pick_port_real_bind():
         pytest.skip(f"环境禁止 bind（沙箱）：{e}")
 
 
+def test_pick_port_wildcard_conflict():
+    """回归：0.0.0.0 已监听的端口，回环探测必须视为占用。
+
+    曾因探测用 127.0.0.1 + SO_REUSEADDR 误判 8790 可用，uvicorn 绑定
+    0.0.0.0 失败后窗口开到了同端口的另一个服务上。
+    """
+    try:
+        blocker = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        blocker.bind(("0.0.0.0", 0))
+        blocker.listen(1)
+        occupied = blocker.getsockname()[1]
+    except OSError as e:
+        pytest.skip(f"环境禁止 bind（沙箱）：{e}")
+    try:
+        assert pick_port("127.0.0.1", occupied, tries=1) != occupied
+    except RuntimeError:
+        pass  # 整段端口都不可用也说明占用被正确识别
+    finally:
+        blocker.close()
+
+
 def test_single_instance_lock(workspace):
     workspace.mkdir(parents=True)
     a, b = SingleInstance(workspace), SingleInstance(workspace)
@@ -115,6 +137,17 @@ def test_single_instance_lock(workspace):
     a.release()
     assert b.acquire(), "释放后可重新持有"
     b.release()
+
+
+def test_single_instance_creates_missing_dir(tmp_path):
+    """数据目录不存在时 acquire 必须自建（真机首次启动即此场景，缺了会秒崩）。"""
+    missing = tmp_path / "not-yet-created" / "personal-library"
+    lock = SingleInstance(missing)
+    try:
+        assert lock.acquire(), "目录不存在也应能拿到锁（自建目录）"
+        assert missing.is_dir()
+    finally:
+        lock.release()
 
 
 def test_bootstrap_defaults():

@@ -195,9 +195,25 @@
 <!-- 移动端底部弹层（引用 / 链接入库） -->
 <div class="sheet-wrap only-mobile" id="mSheetWrap" hidden><div class="sheet" id="mSheet"></div></div>
 
+<!-- 首次启动配置向导：模型 key 未配置且本机未跳过时弹出（app.js maybeOnboard） -->
+<div class="ob-wrap" id="onboard" hidden>
+  <div class="ob-card">
+    <img class="ob-logo" src="/icons/logo.png" alt="">
+    <h1 class="ob-h">欢迎来到个人知识库</h1>
+    <p class="ob-d">最后一步：填入模型服务的 API Key，问答与语义检索即刻可用。<br>默认使用智谱（GLM）；其他服务商可稍后在「设置 → 模型服务」配置。</p>
+    <div class="ob-field">
+      <input type="password" id="obKey" placeholder="粘贴智谱 API Key" autocomplete="off">
+      <a class="ob-link" href="https://open.bigmodel.cn/usercenter/apikeys" target="_blank" rel="noopener">去获取 ↗</a>
+    </div>
+    <button class="btn primary ob-go" id="obGo">开始使用</button>
+    <button class="ob-skip" id="obSkip">跳过，稍后在设置里配置</button>
+  </div>
+</div>
+
 <div id="toasts" aria-live="polite"></div>
 
 <script src="/js/ai-orb.js"></script>
+<script src="/js/vendor/qrcode.min.js"></script>
 <script src="/js/app.js"></script>
 </body>
 </html>

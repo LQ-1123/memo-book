@@ -16,9 +16,12 @@ GH_BASE="https://github.com/eugeneware/ffmpeg-static/releases/latest/download"
 
 mkdir -p resources/ffmpeg
 
-fetch() { # fetch <url> <out>
+fetch() { # fetch <url> <out> [额外 curl 参数，如 --max-time 240]
   echo "下载 $1"
-  curl -fL --retry 2 --connect-timeout 15 -A "Mozilla/5.0" -o "$2" "$1"
+  local url=$1 out=$2
+  shift 2
+  # --speed-*：连续 30 秒速度低于 1KB/s 视为卡死，自动断开（换下一源/判失败），避免无限挂起
+  curl -fL --retry 2 --connect-timeout 15 --speed-time 30 --speed-limit 1024 "$@" -A "Mozilla/5.0" -o "$out" "$url"
 }
 
 fetch_first() { # fetch_first <out> <url...>：依次尝试，全部失败返回 1
@@ -73,13 +76,34 @@ if [[ "$(uname)" == "Darwin" ]]; then
       echo "全部源失败：可手动下载静态 ffmpeg 放到 $dir/ffmpeg（chmod +x）后重跑"; exit 1
     fi
   fi
-  # ffprobe 可选（仅部分后处理用；失败不阻塞）
+  # ffprobe 可选（仅部分后处理用；失败不阻塞）。
+  # 优先 npmmirror 的 @ffprobe-installer npm 包（二进制打包在 tarball 里，国内快），
+  # 兜底 evermeet.cx（海外源，慢但稳定；zip 内单文件）
   if [[ ! -x "$dir/ffprobe" ]]; then
-    if fetch "https://evermeet.cx/ffmpeg/get/ffprobe/zip" "$dir/ffprobe.zip" 2>/dev/null; then
-      unzip -o -j "$dir/ffprobe.zip" ffprobe -d "$dir" && rm "$dir/ffprobe.zip" && chmod +x "$dir/ffprobe"
-    else
-      echo "提示：未获取 ffprobe（可选，不影响核心功能）"
-      rm -f "$dir/ffprobe.zip"
+    case $gharch in
+      arm64) pkg="@ffprobe-installer/darwin-arm64"; ver=5.0.1 ;;  # arm64 最新只到 5.0.1（ffprobe 4.4）
+      *)     pkg="@ffprobe-installer/darwin-x64";   ver=5.1.0 ;;  # x64 到 5.1.0（ffprobe 2023）
+    esac
+    ok=0
+    echo "下载 ffprobe（npmmirror 国内源，约 8~25MB）"
+    if fetch "https://registry.npmmirror.com/$pkg/-/$pkg-$ver.tgz" "$dir/ffprobe.tgz" --max-time 240 2>/dev/null; then
+      member=$(tar -tzf "$dir/ffprobe.tgz" 2>/dev/null | grep -m1 '/ffprobe$' || true)
+      if [[ -n $member ]] && tar -xzf "$dir/ffprobe.tgz" -C "$dir" "$member" 2>/dev/null && [[ -f "$dir/$member" ]]; then
+        mv "$dir/$member" "$dir/ffprobe"
+        rm -rf "$dir/package"
+        chmod +x "$dir/ffprobe"
+        ok=1
+      fi
+      rm -f "$dir/ffprobe.tgz"
+    fi
+    if [[ $ok != 1 ]]; then
+      echo "  npmmirror 未取到，回落 evermeet（海外源，最多等 4 分钟）"
+      if fetch "https://evermeet.cx/ffmpeg/get/ffprobe/zip" "$dir/ffprobe.zip" --max-time 240 2>/dev/null; then
+        unzip -o -j "$dir/ffprobe.zip" ffprobe -d "$dir" && rm "$dir/ffprobe.zip" && chmod +x "$dir/ffprobe"
+      else
+        echo "提示：未获取 ffprobe（可选，不影响核心功能）"
+        rm -f "$dir/ffprobe.zip" "$dir/ffprobe.tgz"
+      fi
     fi
   fi
   exit 0

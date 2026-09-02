@@ -62,10 +62,12 @@ async function api(path, opts = {}) {
     { "Content-Type": "application/json", "X-API-Key": state.token },
     opts.headers || {}
   );
-  const resp = await fetch(u, Object.assign({}, opts, { headers }));
+  /* 同源白名单已在上方硬校验（origin 必须等于 location.origin，路径必须 /api/v1/），
+     浏览器同源策略下前端 fetch 不构成服务端 SSRF */
+  const resp = await fetch(u, Object.assign({}, opts, { headers })); // nosemgrep
   if (resp.status === 401) {
     if (!opts.quiet) {
-      toast("访问口令缺失或不正确，请到「设置」填写", "err");
+      toast("需要访问口令，请到「设置」粘贴", "err");
       location.hash = "#/settings";
     }
     throw new Error("unauthorized");
@@ -120,7 +122,7 @@ function cycleTheme() {
 
 async function pollHealth() {
   try {
-    state.health = await (await fetch("/api/v1/health")).json();
+    state.health = await (await api("/health", { quiet: true })).json();
   } catch {
     state.health = null;
   }
@@ -579,7 +581,7 @@ function sendFromEditor() {
   const text = collectUserText();
   if (!text) { toast("先写点什么再发送"); return; }
   if (!state.token) {
-    toast("访问口令缺失或不正确，请到「设置」填写", "err");
+    toast("需要访问口令，请到「设置」粘贴", "err");
     location.hash = "#/settings";
     return;
   }
@@ -1243,7 +1245,7 @@ async function uploadFiles(files) {
         headers: { "X-API-Key": state.token },
         body: fd,
       });
-      if (resp.status === 401) { toast("访问口令缺失，请到「设置」填写", "err"); location.hash = "#/settings"; return; }
+      if (resp.status === 401) { toast("需要访问口令，请到「设置」粘贴", "err"); location.hash = "#/settings"; return; }
       const r = await resp.json();
       if (!resp.ok) throw new Error(r.detail || "HTTP " + resp.status);
       toast(`已接收「${f.name}」，自动索引中…`);
@@ -1717,10 +1719,9 @@ const CFG_FIELDS = [
   "bilibili_sessdata", "vision_model", "watch_dirs",
   "asr_model",
 ];
-const SET_CATS = [
-  ["sec-token", "访问口令"], ["sec-embed", "嵌入模型"], ["sec-llm", "问答模型"],
-  ["sec-rerank", "重排（可选）"], ["sec-adv", "高级"], ["sec-about", "关于"],
-];
+
+/* 本机回环访问判定：桌面版窗口 / 服务器宿主浏览器 */
+function isLocalHost() { return /^(127\.|localhost$|\[::1\])/.test(location.hostname); }
 
 /* 原生 <select> 在本环境（内嵌 webview）渲染异常：升级为应用内自绘下拉。
    原 select 保留在 DOM（display:none）供 loadCfgForm/saveCfg 按 id 读写 value。 */
@@ -1788,6 +1789,7 @@ function enterSettings() {
   if (!view.dataset.built) { view.innerHTML = settingsHtml(); bindSettings(view); upgradeSelects(view); view.dataset.built = "1"; }
   renderSetCats();
   loadCfgForm(view);
+  loadPair(view);
   renderStatCard(view);
   $("#saveBar", view).classList.remove("dirty");
 }
@@ -1804,10 +1806,10 @@ function settingsHtml() {
 
     <div class="stat-card" id="statCard">加载状态中…</div>
 
-    <section class="set-card" id="sec-token">
+    <section class="set-card" id="sec-token" hidden>
       <div class="sc-t">访问口令</div>
-      <div class="sc-d">本服务的门禁，非模型 key。仅保存在此设备。</div>
-      <input type="password" id="setToken" placeholder="服务端 .env 的 API_KEYS 之一" value="${esc(state.token)}">
+      <div class="sc-d" id="tokHint">此设备经局域网访问服务，需要粘贴管理者提供的口令（仅存本机）。</div>
+      <input type="password" id="setToken" placeholder="粘贴访问口令" value="${esc(state.token)}">
     </section>
 
     <section class="set-card" id="sec-model">
@@ -1860,10 +1862,17 @@ function settingsHtml() {
       </div>
     </section>
 
+    ${isLocalHost() ? `
+    <section class="set-card" id="sec-pair">
+      <div class="sc-t">手机访问 <span class="sc-sub">同一 Wi-Fi · 扫码即用</span></div>
+      <div class="sc-d">用手机相机扫码，即可在其他设备打开这个知识库，全程无需输入口令。</div>
+      <div class="qr-area" id="pairArea" style="margin-top:10px">获取配对信息…</div>
+    </section>` : ""}
+
     <section class="set-card" id="sec-about">
       <div class="sc-t">关于</div>
       <div class="about-grid">
-        <span>版本</span><span>v0.22.2</span>
+        <span>版本</span><span>v0.24.0</span>
         <span>文档 / 分块</span><span id="abDocs">—</span>
         <span>目录监听</span><span id="abWatch">—</span>
         <span>监听路径</span><span id="abDir" style="word-break:break-all">—</span>
@@ -1909,11 +1918,27 @@ async function renderStatCard(view) {
   set("abDir", (h.watch_dirs && h.watch_dirs[0]) || "未配置");
 }
 
+/* 手机访问配对卡：拉取带 key 的局域网链接并渲染成二维码（key 只进二维码，不显示） */
+async function loadPair(view) {
+  const area = $("#pairArea", view);
+  if (!area) return;  // 远程设备不渲染此卡
+  try {
+    const r = await (await api("/pair/url", { quiet: true })).json();
+    if (!r.pairable) { area.textContent = r.reason || "当前不可配对"; return; }
+    const qr = qrcode(0, "M");
+    qr.addData(r.url);
+    qr.make();
+    area.innerHTML = qr.createSvgTag({ cellSize: 4, margin: 2 })
+      + `<div class="sc-d" style="margin-top:8px">或手动访问：${esc(r.url.split("#")[0])}</div>`;
+  } catch { area.textContent = "无法获取配对信息（服务未就绪？）"; }
+}
+
 function renderSetCats() {
   const cats = [
-    ["sec-token", "访问口令"], ["sec-model", "模型服务"], ["sec-source", "数据来源"],
+    ["sec-model", "模型服务"], ["sec-source", "数据来源"],
+    ["sec-pair", "手机访问"],
     ["sec-about", "关于"],
-  ];
+  ].filter(([id]) => document.getElementById(id));  // 远程设备无配对卡，导航项随之隐藏
   $("#setCats").innerHTML = cats
     .map(([id, label]) => `<div class="sb-cat" data-sec="${id}">${label}</div>`)
     .join("");
@@ -2095,6 +2120,7 @@ function bindQrLogin(view) {
 async function loadCfgForm(view) {
   try {
     const cfg = await (await api("/config")).json();
+    $("#sec-token", view).hidden = true;   // 认证通过 → 本机或已有有效口令，无需展示
     for (const f of CFG_FIELDS) {
       const el = view.querySelector("#" + f);
       if (!el) continue;
@@ -2106,7 +2132,13 @@ async function loadCfgForm(view) {
     }
     syncSelBtns(view);
     renderWatchChips();
-  } catch { /* 未配口令时静默 */ }
+  } catch (e) {
+    /* 远程设备无有效口令 → 揭示口令卡；本机不会走到这里（回环免认证） */
+    if (e.message === "unauthorized" && !isLocalHost()) {
+      const card = $("#sec-token", view);
+      if (card) card.hidden = false;
+    }
+  }
 }
 
 async function saveCfg(view) {
@@ -2128,7 +2160,11 @@ async function saveCfg(view) {
     loadCfgForm(view);
     pollHealth();
   } catch (e) {
-    if (e.message !== "unauthorized") toast(e.message, "err");
+    if (e.message === "unauthorized") {
+      const card = $("#sec-token", view);
+      if (card && !isLocalHost()) card.hidden = false;
+      toast("口令无效或不完整，请填写后重试", "err");
+    } else if (e.message !== "unauthorized") toast(e.message, "err");
   } finally {
     if (btn) btn.disabled = false;
   }
@@ -2390,7 +2426,7 @@ function bindMobile() {
     if (state.threadId && state.busyMap.has(state.threadId)) { stopAsk(); return; }
     const text = ta.value.trim();
     if (!text) return;
-    if (!state.token) { toast("访问口令缺失或不正确，请到「设置」填写", "err"); location.hash = "#/settings"; return; }
+    if (!state.token && !isLocalHost()) { toast("请先在「设置」粘贴访问口令", "err"); location.hash = "#/settings"; return; }
     ta.value = ""; grow();
     insertQuestion(text);
     ta.blur();   // 收起键盘，让流式回答占满屏
@@ -2469,6 +2505,52 @@ bindEditor();
 bindAskSidebar();
 bindDocs();
 bindMobile();
+/* ---------- 首次启动配置向导 ---------- */
+
+function maybeOnboard() {
+  if (localStorage.getItem("lib_onboarded")) return;
+  const h = state.health;
+  if (!h || h.llm_configured) return;  // 已配置过 key 的环境永不打扰
+  $("#onboard").hidden = false;
+}
+
+function closeOnboard() {
+  localStorage.setItem("lib_onboarded", "1");
+  const el = $("#onboard");
+  if (el) el.hidden = true;
+}
+
+function bindOnboard() {
+  const wrap = $("#onboard");
+  if (!wrap) return;
+  $("#obSkip").addEventListener("click", closeOnboard);
+  $("#obGo").addEventListener("click", async () => {
+    const key = $("#obKey").value.trim();
+    if (!key) { toast("先粘贴 API Key，或点下方跳过", "err"); return; }
+    try {
+      // 只补空缺的 base_url/model，不覆盖用户已有的服务商配置
+      const cfg = await (await api("/config")).json();
+      const ZHIPU = "https://open.bigmodel.cn/api/paas/v4";
+      const body = { llm_api_key: key, embed_api_key: key };
+      for (const [k, v] of Object.entries({
+        llm_base_url: ZHIPU, llm_model: "glm-4.6",
+        embed_base_url: ZHIPU, embed_model: "embedding-3",
+      })) {
+        if (!cfg[k]) body[k] = v;
+      }
+      await api("/config", { method: "PUT", body: JSON.stringify(body) });
+      closeOnboard();
+      toast("模型已配置，开始提问吧");
+      pollHealth();
+    } catch (e) {
+      toast(e.message === "unauthorized" ? "口令无效，请在设置里检查" : "保存失败：" + e.message, "err");
+    }
+  });
+  $("#obKey").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") $("#obGo").click();
+  });
+}
+
 window.addEventListener("DOMContentLoaded", async () => {
   const th = curThread();
   if (th) renderBlocks(th.blocks, th.draft);
@@ -2485,6 +2567,8 @@ window.addEventListener("DOMContentLoaded", async () => {
   updatePill();
   route();
   await pollHealth();
+  bindOnboard();
+  maybeOnboard();
   syncThreadsFromServer();   // 服务端为准合并对话（离线自动回落 localStorage）
   handleShareIntent();
   setInterval(pollHealth, 15000);

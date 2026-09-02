@@ -102,7 +102,9 @@ def test_embedded_app_end_to_end(tmp_path):
         _env_file=None,  # type: ignore[call-arg]
     )
     with TestClient(create_app(settings)) as client:
-        body = client.get("/api/v1/health").json()
+        body = client.get(
+            "/api/v1/health", headers={"X-API-Key": settings.api_keys}
+        ).json()
         assert body["qdrant"] is True
         assert (tmp_path / "data" / "qdrant").is_dir()
         client.app.state.store._client.close()

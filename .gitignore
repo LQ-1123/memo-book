@@ -28,3 +28,7 @@ resources/ffmpeg/
 
 # Claude 本地配置
 .claude/settings.local.json
+
+# 本机临时文件
+.run.log
+paseo.json

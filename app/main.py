@@ -14,7 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from .api import config_routes, fs as fs_routes, health, kb, qa, quiz as quiz_routes, qrlogin, threads as threads_routes
+from .api import config_routes, fs as fs_routes, health, kb, pair, qa, quiz as quiz_routes, qrlogin, threads as threads_routes
 from .config import Settings, get_settings
 from .core.asr import AsrClient
 from .core.db import Database
@@ -117,14 +117,16 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
-    app.include_router(health.router, prefix="/api/v1")
     protected = [Depends(require_api_key)]
+    # health 也保护（回环免认证不受影响）：绑 0.0.0.0 后不向局域网裸露文档数/监听目录等元信息
+    app.include_router(health.router, prefix="/api/v1", dependencies=protected)
     app.include_router(config_routes.router, prefix="/api/v1", dependencies=protected)
     app.include_router(kb.router, prefix="/api/v1", dependencies=protected)
     app.include_router(threads_routes.router, prefix="/api/v1", dependencies=protected)
     app.include_router(quiz_routes.router, prefix="/api/v1", dependencies=protected)
     app.include_router(qa.router, prefix="/api/v1", dependencies=protected)
     app.include_router(qrlogin.router, prefix="/api/v1", dependencies=protected)
+    app.include_router(pair.router, prefix="/api/v1", dependencies=protected)
     app.include_router(fs_routes.router, prefix="/api/v1", dependencies=protected)
 
     # PWA 关键文件：显式路由保证 MIME 正确且不缓存（sw 更新即时生效）

@@ -23,7 +23,18 @@ echo "==> [3/5] 下载静态 ffmpeg（已存在则跳过）"
 bash scripts/fetch_ffmpeg.sh
 
 echo "==> [4/5] PyInstaller 打包（几分钟）"
-rm -rf build dist
+# 清场：上次构建的应用若还在运行会锁住 dist 里的 dylib，先结束它再删
+pkill -f "dist/personal-library" 2>/dev/null || true
+rm -rf build dist 2>/dev/null || true
+if [[ -d dist ]]; then
+  chflags -R nouchg dist 2>/dev/null || true  # 个别文件可能带「已锁定」标志
+  rm -rf build dist || true
+fi
+if [[ -d dist ]]; then
+  echo "无法删除旧产物 dist/：请先退出正在运行的 personal-library 应用（看下 Dock/程序坞），"
+  echo "然后手动执行 rm -rf dist 再重跑本脚本。"
+  exit 1
+fi
 $PY -m PyInstaller --noconfirm personal-library.spec
 
 echo "==> [5/5] 签名与打包 DMG"
@@ -35,13 +46,13 @@ else
   codesign --deep --force --sign - "$APP"
   echo "已 ad-hoc 签名：接收方首次打开需「右键 → 打开」"
 fi
-# DMG（标准分发格式，带「拖入 Applications」安装布局）
+# DMG（标准分发格式，带「拖入 Applications」安装布局；ULFO=lzfse 压缩，比 UDZO 小 ~15%）
 STAGE=dist/dmg-stage
 rm -rf "$STAGE"
 mkdir -p "$STAGE"
 cp -R "$APP" "$STAGE/"
 ln -s /Applications "$STAGE/Applications"
-hdiutil create -volname "personal-library" -srcfolder "$STAGE" -ov -format UDZO \
+hdiutil create -volname "personal-library" -srcfolder "$STAGE" -ov -format ULFO \
   dist/personal-library-macos.dmg
 rm -rf "$STAGE"
 du -sh "$APP" dist/personal-library-macos.dmg

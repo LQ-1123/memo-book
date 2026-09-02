@@ -28,9 +28,11 @@ def make_client(tmp_path, api_keys: str | None = None):
     return TestClient(app)
 
 
-def test_health_open(tmp_path):
+def test_health_protected_but_reachable_with_token(tmp_path):
     with make_client(tmp_path) as client:
-        resp = client.get("/api/v1/health")
+        # health 已纳入保护：无 token 401（回环免认证只对本机请求生效，测试客户端非回环）
+        assert client.get("/api/v1/health").status_code == 401
+        resp = client.get("/api/v1/health", headers={"X-API-Key": TOKEN_A})
         assert resp.status_code == 200
         body = resp.json()
         assert body["status"] == "ok"
@@ -60,7 +62,7 @@ def test_bearer_auth_accepted(tmp_path):
 def test_no_keys_configured_fails_closed(tmp_path):
     with make_client(tmp_path, api_keys="") as client:
         assert client.get("/api/v1/documents").status_code == 503
-        assert client.get("/api/v1/health").status_code == 200
+        assert client.get("/api/v1/health").status_code == 503  # health 同样 fail-closed
 
 
 def test_search_empty_index(tmp_path):
@@ -158,7 +160,7 @@ def test_config_roundtrip_and_masking(tmp_path):
         assert r.json()["updated"] == ["embed_api_key", "embed_dim"]
 
         # 健康状态立即反映，无需重启
-        assert client.get("/api/v1/health").json()["embed_configured"] is True
+        assert client.get("/api/v1/health", headers={"X-API-Key": TOKEN_A}).json()["embed_configured"] is True
 
         # key 只以掩码出现
         raw = _json.dumps(client.get("/api/v1/config", headers={"X-API-Key": TOKEN_A}).json())
@@ -174,7 +176,7 @@ def test_config_roundtrip_and_masking(tmp_path):
         watch_dirs="", qdrant_url=DEAD_QDRANT, _env_file=None,  # type: ignore[call-arg]
     )
     with TestClient(create_app(settings2)) as client2:
-        assert client2.get("/api/v1/health").json()["embed_configured"] is True
+        assert client2.get("/api/v1/health", headers={"X-API-Key": TOKEN_A}).json()["embed_configured"] is True
 
 
 def test_config_rejects_bad_input(tmp_path):
@@ -192,3 +194,19 @@ def test_static_frontend_served(tmp_path):
         resp = client.get("/")
         assert resp.status_code == 200
         assert "个人知识库" in resp.text
+
+
+def _req_with_client(host: str):
+    from starlette.requests import Request
+
+    return Request({"type": "http", "client": (host, 50000)})
+
+
+def test_loopback_requests_skip_auth():
+    """回环免认证是桌面版零配置的关键路径；测试客户端恒为非回环，故直接单测判定函数。"""
+    from app.security import _is_loopback
+
+    assert _is_loopback(_req_with_client("127.0.0.1"))
+    assert _is_loopback(_req_with_client("::1"))
+    assert not _is_loopback(_req_with_client("192.168.1.5"))
+    assert not _is_loopback(_req_with_client("testclient"))
