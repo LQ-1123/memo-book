@@ -30,12 +30,12 @@ macOS 产出 `personal-library.app`，Windows 产出 `personal-library.exe`。
 bash scripts/build_app.sh
 ```
 
-脚本自包含：自动装 `pyinstaller`/`pywebview`、生成图标、下载静态 ffmpeg（可手动放置 `resources/ffmpeg/darwin-<arch>/ffmpeg` 跳过下载）、PyInstaller 打包、ad-hoc 签名、压 zip。
+脚本自包含：自动装 `pyinstaller`/`pywebview`、生成图标、下载静态 ffmpeg（可手动放置 `resources/ffmpeg/darwin-<arch>/ffmpeg` 跳过下载）、PyInstaller 打包、ad-hoc 签名、打 DMG。
 
-- 产物：`dist/personal-library.app`、`dist/personal-library-macos.zip`
-- 分发 zip 给对方解压即可（Intel/Apple Silicon 不通用，按目标机构建）
+- 产物：`dist/personal-library.app`、`dist/personal-library-macos.dmg`（标准分发格式，打开后拖入 Applications 即完成安装）
+- 分发 dmg 给对方即可（Intel/Apple Silicon 不通用，按目标机构建）
 - **未公证提示**：无 Apple Developer ID 时，对方首次打开需「右键 → 打开」，或
-  `xattr -cr /path/to/personal-library.app`
+  `xattr -cr /Applications/personal-library.app`
 - 有 Developer ID 时正式签名+公证：
   `APPLE_IDENTITY="Developer ID Application: ..." bash scripts/build_app.sh`，随后 `xcrun notarytool submit` + `xcrun stapler staple`
 

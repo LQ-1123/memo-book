@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# macOS 桌面版一键构建：装依赖 → 图标 → ffmpeg → PyInstaller → 签名 → zip。
-# 产物：dist/personal-library.app 与 dist/personal-library-macos.zip
+# macOS 桌面版一键构建：装依赖 → 图标 → ffmpeg → PyInstaller → 签名 → DMG。
+# 产物：dist/personal-library.app 与 dist/personal-library-macos.dmg
 #
 # 可选：正式签名（有 Apple Developer ID 时）
 #   APPLE_IDENTITY="Developer ID Application: Your Name (TEAMID)" bash scripts/build_app.sh
@@ -11,8 +11,10 @@ PY=.venv/bin/python
 [[ -x $PY ]] || { echo "未找到 .venv，先执行: python3 -m venv .venv && .venv/bin/pip install -e ."; exit 1; }
 
 echo "==> [1/5] 构建依赖（pyinstaller / pywebview，已装则跳过）"
-$PY -c "import PyInstaller" 2>/dev/null || $PY -m pip install pyinstaller
-$PY -c "import webview" 2>/dev/null || $PY -m pip install pywebview
+# 国内默认走清华镜像提速；已有 PIP_INDEX_URL 配置则尊重原值
+PIP_INDEX="${PIP_INDEX_URL:-https://pypi.tuna.tsinghua.edu.cn/simple}"
+$PY -c "import PyInstaller" 2>/dev/null || $PY -m pip install -i "$PIP_INDEX" pyinstaller
+$PY -c "import webview" 2>/dev/null || $PY -m pip install -i "$PIP_INDEX" pywebview
 
 echo "==> [2/5] 生成应用图标"
 $PY scripts/gen_icons.py
@@ -24,7 +26,7 @@ echo "==> [4/5] PyInstaller 打包（几分钟）"
 rm -rf build dist
 $PY -m PyInstaller --noconfirm personal-library.spec
 
-echo "==> [5/5] 签名与打包 zip"
+echo "==> [5/5] 签名与打包 DMG"
 APP=dist/personal-library.app
 if [[ -n "${APPLE_IDENTITY:-}" ]]; then
   codesign --deep --force --options runtime --sign "$APPLE_IDENTITY" "$APP"
@@ -33,9 +35,14 @@ else
   codesign --deep --force --sign - "$APP"
   echo "已 ad-hoc 签名：接收方首次打开需「右键 → 打开」"
 fi
-(
-  cd dist
-  zip -qry personal-library-macos.zip personal-library.app
-)
-du -sh "$APP" dist/personal-library-macos.zip
-echo "完成: $APP"
+# DMG（标准分发格式，带「拖入 Applications」安装布局）
+STAGE=dist/dmg-stage
+rm -rf "$STAGE"
+mkdir -p "$STAGE"
+cp -R "$APP" "$STAGE/"
+ln -s /Applications "$STAGE/Applications"
+hdiutil create -volname "personal-library" -srcfolder "$STAGE" -ov -format UDZO \
+  dist/personal-library-macos.dmg
+rm -rf "$STAGE"
+du -sh "$APP" dist/personal-library-macos.dmg
+echo "完成: $APP  分发: dist/personal-library-macos.dmg"

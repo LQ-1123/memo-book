@@ -8,31 +8,48 @@ Set-Location (Split-Path $PSScriptRoot -Parent)
 
 # ---- [1/5] venv 与依赖 ----
 Write-Host "==> [1/5] 准备 venv 与依赖"
+$Mirror = $env:PIP_INDEX_URL
+if (-not $Mirror) { $Mirror = "https://pypi.tuna.tsinghua.edu.cn/simple" }  # 国内镜像提速
 if (-not (Test-Path ".venv\Scripts\python.exe")) {
     py -3 -m venv .venv
 }
 $PY = ".venv\Scripts\python.exe"
-& $PY -m pip install -U pip -q
-& $PY -m pip install -e . -q
-& $PY -m pip install pyinstaller -q
+& $PY -m pip install -U pip -q -i $Mirror
+& $PY -m pip install -e . -q -i $Mirror
+& $PY -m pip install pyinstaller -q -i $Mirror
 
 # ---- [2/5] 图标 ----
 Write-Host "==> [2/5] 生成应用图标"
 & $PY scripts\gen_icons.py
 
 # ---- [3/5] ffmpeg ----
-Write-Host "==> [3/5] 下载 ffmpeg（BtbN 静态构建，已存在则跳过）"
-New-Item -ItemType Directory -Force -Path "resources\ffmpeg" | Out-Null
+Write-Host "==> [3/5] 下载 ffmpeg（npmmirror 国内镜像优先，失败回落 BtbN；已存在则跳过）"
+New-Item -ItemType Directory -Force -Path "resources\ffmpeg\windows" | Out-Null
 if (-not (Test-Path "resources\ffmpeg\windows\ffmpeg.exe")) {
-    New-Item -ItemType Directory -Force -Path "resources\ffmpeg\windows" | Out-Null
-    $zip = "resources\ffmpeg\windows\ff.zip"
-    Invoke-WebRequest -Uri "https://github.com/BtbN/FFmpeg-Builds/releases/latest/download/ffmpeg-master-latest-win64-gpl.zip" -OutFile $zip
-    Expand-Archive -Path $zip -DestinationPath "resources\ffmpeg\windows\_tmp" -Force
-    $bin = Get-ChildItem "resources\ffmpeg\windows\_tmp" -Recurse -Filter "ffmpeg.exe" | Select-Object -First 1
-    Copy-Item $bin.FullName "resources\ffmpeg\windows\ffmpeg.exe"
-    $probe = Get-ChildItem "resources\ffmpeg\windows\_tmp" -Recurse -Filter "ffprobe.exe" | Select-Object -First 1
-    if ($probe) { Copy-Item $probe.FullName "resources\ffmpeg\windows\ffprobe.exe" }
-    Remove-Item -Recurse -Force "resources\ffmpeg\windows\_tmp", $zip
+    $ok = $false
+    # 源1：npmmirror（阿里二进制镜像，单文件直下，体积小速度快）；目录布局不确定，两种都试
+    foreach ($u in @(
+        "https://registry.npmmirror.com/-/binary/ffmpeg-static/b6.0/win32-x64/ffmpeg.exe",
+        "https://registry.npmmirror.com/-/binary/ffmpeg-static/b6.0/ffmpeg-win32-x64"
+    )) {
+        try {
+            Invoke-WebRequest -Uri $u -OutFile "resources\ffmpeg\windows\ffmpeg.exe" -TimeoutSec 60
+            $ok = $true
+            break
+        } catch { Write-Host "  源不可用: $u" }
+    }
+    # 源2：BtbN 官方 zip（约 90MB，慢）
+    if (-not $ok) {
+        $zip = "resources\ffmpeg\windows\ff.zip"
+        Invoke-WebRequest -Uri "https://github.com/BtbN/FFmpeg-Builds/releases/latest/download/ffmpeg-master-latest-win64-gpl.zip" -OutFile $zip
+        Expand-Archive -Path $zip -DestinationPath "resources\ffmpeg\windows\_tmp" -Force
+        $bin = Get-ChildItem "resources\ffmpeg\windows\_tmp" -Recurse -Filter "ffmpeg.exe" | Select-Object -First 1
+        Copy-Item $bin.FullName "resources\ffmpeg\windows\ffmpeg.exe"
+        $probe = Get-ChildItem "resources\ffmpeg\windows\_tmp" -Recurse -Filter "ffprobe.exe" | Select-Object -First 1
+        if ($probe) { Copy-Item $probe.FullName "resources\ffmpeg\windows\ffprobe.exe" }
+        Remove-Item -Recurse -Force "resources\ffmpeg\windows\_tmp", $zip
+        $ok = $true
+    }
 }
 else { Write-Host "已存在，跳过" }
 
