@@ -1,0 +1,934 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>v0.9 线框图 · 前端重设计（待审核）</title>
+<style>
+  /* ========== 线框工具样式（非产品样式）========== */
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif; background:#EDECE8; padding:24px 24px 80px; color:#444; }
+  h1 { font-size:20px; margin-bottom:4px; }
+  .sub { font-size:13px; color:#888; margin-bottom:20px; }
+  .controls { position:sticky; top:0; z-index:99; background:#EDECE8; padding:12px 0 14px; border-bottom:1px solid #D8D6D0; margin-bottom:22px; display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  .controls .grp { display:flex; gap:0; border:1px solid #C9C7C0; border-radius:8px; overflow:hidden; background:#fff; }
+  .controls button { border:0; background:#fff; padding:7px 16px; font-size:13px; cursor:pointer; color:#555; border-right:1px solid #E5E3DD; }
+  .controls button:last-child { border-right:0; }
+  .controls button.on { background:#5F6C76; color:#fff; }
+  .controls .lbl { font-size:12px; color:#999; margin:0 6px 0 14px; }
+  .controls button.statebtn { border:1px solid #C9C7C0; border-radius:8px; background:#fff; }
+  .controls button.statebtn.on { background:#fff; color:#5F6C76; border-color:#5F6C76; }
+  .controls .fxsel { border:1px solid #C9C7C0; border-radius:8px; background:#fff; font-size:13px; padding:6px 8px; color:#555; }
+
+  .frames { display:flex; gap:28px; align-items:flex-start; flex-wrap:wrap; }
+  .frame-wrap { position:relative; }
+  .frame-title { font-size:12px; color:#999; margin-bottom:8px; letter-spacing:.05em; }
+
+  /* ========== 桌面框 ========== */
+  .desktop { width:1180px; height:740px; background:#F6F4EF; border:1px solid #C9C7C0; border-radius:10px; overflow:hidden; display:grid; grid-template-columns:44px 232px 1fr 264px; position:relative; box-shadow:0 6px 24px rgba(0,0,0,.06); }
+  .desktop.right-collapsed { grid-template-columns:44px 232px 1fr 0; }
+  .desktop.right-collapsed .rightbar { display:none; }
+
+  /* ribbon */
+  .ribbon { background:#FFFFFF; border-right:1px solid #E9E8E3; display:flex; flex-direction:column; align-items:center; padding:10px 0; gap:4px; }
+  .rib-icon { width:30px; height:30px; border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:15px; color:#8A8880; cursor:default; position:relative; }
+  .rib-icon.on { background:#EFF2F4; color:#8B9FAD; }
+  .rib-icon.on::before { content:""; position:absolute; left:-7px; top:7px; width:2.5px; height:16px; background:#8B9FAD; border-radius:2px; }
+  .rib-gap { flex:1; }
+
+  /* sidebar */
+  .sidebar { background:#FFFFFF; border-right:1px solid #E9E8E3; padding:12px 10px; overflow:hidden; }
+  .sb-search { border:1px solid #E0DFD9; border-radius:7px; height:32px; display:flex; align-items:center; padding:0 9px; color:#B4B2AD; font-size:12.5px; justify-content:space-between; }
+  .sb-sec { font-size:11px; color:#B4B2AD; margin:16px 8px 6px; letter-spacing:.08em; }
+  .sb-new { margin-top:10px; height:32px; border:1px solid #E0DFD9; border-radius:7px; display:flex; align-items:center; justify-content:center; font-size:13px; color:#5F6C76; cursor:pointer; }
+  .sb-conv { height:32px; border-radius:6px; display:flex; align-items:center; gap:8px; padding:0 9px; font-size:13px; color:#37352F; margin-bottom:1px; }
+  .sb-conv .t { flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .sb-conv .tm { font-size:11px; color:#B4B2AD; flex:none; }
+  .sb-conv .del { display:none; color:#B4B2AD; font-size:12px; flex:none; }
+  .sb-conv:hover .del { display:block; }
+  .sb-conv:hover .tm { display:none; }
+  .sb-conv.on { background:#EFF2F4; color:#5F6C76; font-weight:600; }
+
+  /* main */
+  .main { display:flex; flex-direction:column; overflow:hidden; position:relative; }
+  .topbar { height:36px; flex:none; border-bottom:1px solid #E9E8E3; display:flex; align-items:center; padding:0 14px; gap:10px; background:#FFFFFF; }
+  .topbar .vname { font-size:13px; color:#37352F; font-weight:600; }
+  .topbar .spacer { flex:1; }
+  .status-pill { display:flex; gap:5px; align-items:center; border:1px solid #E9E8E3; border-radius:99px; padding:3px 10px; }
+  .status-pill i { width:6px; height:6px; border-radius:50%; background:#C5C3BD; }
+  .status-pill i.ok { background:#4FB573; }
+  .btn-mini { border:1px solid #E0DFD9; border-radius:6px; font-size:12px; padding:4px 10px; color:#37352F; background:#fff; }
+
+  .view { flex:1; overflow:hidden; position:relative; }
+
+  /* ---- 问答视图：文档式直接书写（第六轮）---- */
+  .ask-empty { height:100%; overflow:hidden; background:#fff; }
+  .ask-thread { height:100%; overflow:hidden; position:relative; background:#fff; }
+  .doc-edit { width:720px; max-width:92%; margin:0 auto; padding-top:96px; }
+  .ph { font-size:16px; color:#B4B2AD; }
+  .caret { display:inline-block; width:2px; height:1.05em; background:#8B9FAD; vertical-align:-0.15em; margin-left:2px; animation:blink 1.1s step-end infinite; }
+  @keyframes blink { 50% { opacity:0; } }
+  .hint-line { font-size:12px; color:#B4B2AD; margin-top:12px; }
+  .hint-line b { color:#787774; }
+  .q-block { font-size:16.5px; font-weight:600; color:#37352F; line-height:1.6; margin:4px 0 16px; }
+  .a-block { font-size:15px; color:#37352F; line-height:1.75; border-left:3px solid #C9D3DA; padding-left:16px; margin-bottom:20px; }
+  .cursor-line { height:1.7em; }
+  .gen-pill { position:absolute; right:22px; bottom:22px; display:inline-flex; align-items:center; gap:6px; border:1px solid #E0DFD9; background:#fff; border-radius:99px; padding:7px 14px; font-size:12.5px; color:#787774; box-shadow:0 4px 16px rgba(0,0,0,.08); }
+  .gen-pill .ic { width:11px; height:11px; }
+  .cite { color:#5F6C76; font-size:11px; vertical-align:super; cursor:pointer; font-weight:600; }
+  .ai-orb { display:inline-block; width:24px; height:24px; vertical-align:-6px; margin-right:9px; }
+  .ai-orb canvas { width:100%; height:100%; display:block; }
+
+  /* ---- 文档视图 ---- */
+  .docs { height:100%; display:flex; flex-direction:column; background:#fff; }
+  .doc-filters { flex:none; display:flex; gap:6px; align-items:center; padding:12px 18px; border-bottom:1px solid #F1F0EB; }
+  .f-tag { border:1px solid #E0DFD9; border-radius:6px; font-size:12px; padding:4px 11px; color:#787774; }
+  .f-tag.on { background:#37352F; color:#fff; border-color:#37352F; }
+  .doc-drop { flex:none; margin:14px 18px 4px; border:1.5px dashed #D8D6D0; border-radius:9px; height:0; overflow:hidden; transition:height .15s; color:#B4B2AD; font-size:12.5px; display:flex; align-items:center; justify-content:center; }
+  .doc-drop.show { height:56px; }
+  .doc-rows { flex:1; overflow:hidden; padding:0 18px; }
+  .doc-row { height:44px; border-bottom:1px solid #F1F0EB; display:flex; align-items:center; gap:10px; font-size:13.5px; }
+  .doc-row .ic { width:18px; text-align:center; font-size:14px; }
+  .doc-row .t { flex:1; color:#37352F; white-space:nowrap; overflow:hidden; }
+  .doc-row .type { font-size:11px; color:#787774; background:#F1F0EB; border-radius:4px; padding:2px 7px; }
+  .doc-row .st { font-size:12px; color:#787774; width:56px; }
+  .doc-row .st.busy { color:#B8860B; }
+  .doc-row .tm { font-size:12px; color:#B4B2AD; width:56px; text-align:right; }
+  .doc-row .more { color:#B4B2AD; padding:0 4px; }
+  .doc-foot { flex:none; border-top:1px solid #E9E8E3; padding:9px 18px; display:flex; gap:14px; align-items:center; font-size:12.5px; color:#787774; }
+
+  /* 详情抽屉 */
+  .drawer-mask { position:absolute; inset:0; background:rgba(55,53,47,.12); display:none; }
+  .drawer { position:absolute; top:0; right:0; bottom:0; width:640px; background:#fff; border-left:1px solid #E9E8E3; box-shadow:-8px 0 24px rgba(0,0,0,.08); display:none; flex-direction:column; }
+  .drawer.show { display:flex; }
+  .drawer-mask.show { display:block; }
+  .dr-head { flex:none; height:44px; border-bottom:1px solid #F1F0EB; display:flex; align-items:center; padding:0 16px; gap:10px; }
+  .dr-head .t { font-size:14.5px; font-weight:600; color:#37352F; flex:1; }
+  .dr-body { flex:1; padding:18px; overflow:hidden; }
+  .dr-sec { font-size:11px; color:#B4B2AD; letter-spacing:.08em; margin:14px 0 8px; }
+  .frag { border-left:2px solid #E9E8E3; padding:8px 12px; font-size:13px; color:#787774; line-height:1.6; margin-bottom:8px; }
+
+  /* ---- 设置视图 ---- */
+  .settings { height:100%; background:#fff; overflow:hidden; display:flex; justify-content:center; }
+  .set-col { width:720px; max-width:94%; padding:36px 0 30px; }
+  .set-col h2 { font-size:24px; color:#37352F; margin-bottom:22px; }
+  .set-h { font-size:15px; font-weight:600; color:#37352F; border-bottom:1px solid #E9E8E3; padding-bottom:8px; margin:26px 0 14px; }
+  .set-row { display:flex; align-items:center; gap:14px; margin-bottom:12px; }
+  .set-row .k { width:120px; font-size:13px; color:#787774; flex:none; }
+  .set-in { flex:1; height:34px; border:1px solid #E0DFD9; border-radius:7px; display:flex; align-items:center; padding:0 11px; color:#B4B2AD; font-size:12.5px; justify-content:space-between; }
+  .set-in.masked { color:#787774; letter-spacing:2px; }
+  .set-note { font-size:12px; color:#B4B2AD; margin-top:4px; }
+
+  /* ---- 右栏 ---- */
+  .rightbar { background:#FFFFFF; border-left:1px solid #E9E8E3; padding:14px 12px; overflow:hidden; }
+  .rb-h { font-size:12px; color:#787774; letter-spacing:.06em; margin-bottom:10px; display:flex; justify-content:space-between; align-items:center; }
+  .rb-h .n { background:#EFF2F4; color:#5F6C76; border-radius:99px; font-size:11px; padding:1px 8px; font-weight:600; }
+  .cite-card { border:1px solid #F1F0EB; border-radius:8px; padding:9px 11px; margin-bottom:8px; cursor:pointer; }
+  .cite-card.hl { border-color:#8B9FAD; background:#F4F7F9; }
+  .cite-card .no { font-size:10.5px; color:#5F6C76; font-weight:700; }
+  .cite-card .t { font-size:12.5px; color:#37352F; margin:3px 0; white-space:nowrap; overflow:hidden; }
+  .cite-card .s { font-size:11.5px; color:#787774; line-height:1.5; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+  .rb-mini { margin-top:18px; }
+
+  /* ---- 移动框 ---- */
+  .mobile { width:390px; height:740px; background:#fff; border:1px solid #C9C7C0; border-radius:22px; overflow:hidden; display:flex; flex-direction:column; position:relative; box-shadow:0 6px 24px rgba(0,0,0,.06); }
+  .m-top { flex:none; height:46px; border-bottom:1px solid #E9E8E3; display:flex; align-items:center; padding:0 14px; gap:10px; background:#fff; }
+  .m-top .burger { font-size:16px; color:#37352F; }
+  .m-top .name { font-size:14px; font-weight:600; color:#37352F; flex:1; }
+  .m-body { flex:1; overflow:hidden; position:relative; display:flex; flex-direction:column; background:#fff; }
+  .m-tabs { flex:none; height:52px; border-top:1px solid #E9E8E3; display:flex; background:#fff; }
+  .m-tab { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; font-size:10.5px; color:#8A8880; }
+  .m-tab .em { font-size:17px; }
+  .m-tab.on { color:#5F6C76; font-weight:600; }
+  .m-drawer { position:absolute; top:0; left:0; bottom:0; width:280px; background:#fff; border-right:1px solid #E9E8E3; display:none; flex-direction:column; padding:14px 10px; z-index:5; }
+  .m-drawer.show { display:flex; }
+  .m-scrim { position:absolute; inset:0; background:rgba(55,53,47,.15); display:none; z-index:4; }
+  .m-scrim.show { display:block; }
+
+  /* 移动端视图内容（复用桌面组件的简化） */
+  .m-view { flex:1; overflow:hidden; display:flex; flex-direction:column; }
+  .m-ask-empty { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:0 26px; }
+  .m-ask-empty h2 { font-size:22px; color:#37352F; margin-bottom:18px; }
+  .m-ask-empty .ask-input { width:100%; }
+  .m-thread { flex:1; padding:20px 18px; overflow:hidden; }
+  .m-cites { border-top:1px solid #F1F0EB; padding:10px 18px 14px; }
+  .m-cites .h { font-size:12px; color:#787774; margin-bottom:8px; }
+
+  /* ========== SVG 线性图标（Lucide 风：24 网格 / 1.8px 描边 / 圆角端点）========== */
+  .ic { width:16px; height:16px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; flex:none; display:inline-block; vertical-align:-3px; }
+  .irow { display:inline-flex; align-items:center; gap:6px; }
+  .rib-icon .ic { width:19px; height:19px; vertical-align:0; }
+  .m-tab .ic { width:20px; height:20px; vertical-align:0; }
+  .sb-search .ic { width:14px; height:14px; }
+  .ask-input .ic { width:15px; height:15px; }
+  .f-tag .ic { width:12px; height:12px; vertical-align:-2px; }
+  .doc-row .ic { width:15px; height:15px; color:#8A8880; vertical-align:0; }
+  .doc-drop .ic { width:14px; height:14px; vertical-align:-2px; }
+  .doc-foot .ic { width:12px; height:12px; vertical-align:-1px; }
+  .btn-mini .ic { width:12px; height:12px; vertical-align:-2px; }
+  .sb-new { gap:6px; }
+  .sb-conv .del { width:11px; height:11px; }
+  .stop .ic { width:11px; height:11px; vertical-align:-1.5px; }
+  .set-in .ic { width:13px; height:13px; }
+  .g-toggle .ic { width:13px; height:13px; vertical-align:-2px; margin-right:3px; }
+  .m-top .burger .ic { width:18px; height:18px; vertical-align:-4px; }
+  .dr-head > .ic { width:16px; height:16px; color:#8A8880; }
+
+
+  /* ========== 侧栏随视图切换 + 文档快速预览（第三轮，补插）========== */
+  .sb-pane { display:none; }
+  .anno.sb-anno { position:relative; top:14px; left:0; max-width:210px; display:inline-block; margin-top:10px; }
+  .sb-chips { display:flex; flex-wrap:wrap; gap:5px; margin-top:10px; }
+  .sb-chip { border:1px solid #E0DFD9; border-radius:5px; font-size:11px; padding:2px 8px; color:#787774; }
+  .sb-chip.on { background:#EFF2F4; border-color:#5F6C76; color:#5F6C76; font-weight:600; }
+  .sb-cat { height:30px; border-radius:6px; display:flex; align-items:center; padding:0 9px; font-size:13px; color:#37352F; margin-bottom:1px; }
+  .sb-cat.on { background:#EFF2F4; color:#5F6C76; font-weight:600; }
+  /* 文档侧栏：分区目录树（第四轮，Obsidian 式） */
+  .sb-grp { margin-bottom:3px; }
+  .sb-gh { height:28px; display:flex; align-items:center; gap:6px; padding:0 8px; border-radius:6px; font-size:12.5px; font-weight:600; color:#37352F; cursor:pointer; }
+  .sb-gh .chev { width:11px; height:11px; color:#B4B2AD; transition:transform .12s ease; flex:none; }
+  .sb-grp.closed .chev { transform:rotate(-90deg); }
+  .sb-gh .t { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .sb-gh .n { margin-left:auto; font-size:10.5px; color:#B4B2AD; font-weight:400; flex:none; }
+  .sb-gh:hover { background:#F1F0EB; }
+  .sb-frow { height:27px; display:flex; align-items:center; gap:6px; padding:0 8px 0 25px; border-radius:6px; font-size:12.5px; color:#787774; margin-bottom:1px; cursor:pointer; }
+  .sb-frow .t { flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .sb-frow .tm { font-size:10.5px; color:#C5C3BD; flex:none; }
+  .sb-frow .tm.busy { color:#B8860B; }
+  .sb-frow:hover { background:#F1F0EB; color:#37352F; }
+  .sb-frow.on { background:#EFF2F4; color:#5F6C76; font-weight:600; }
+  .sb-grp.closed .sb-gi { display:none; }
+  .doc-empty { height:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; }
+  .doc-empty .big { width:34px; height:34px; color:#C5C3BD; margin-bottom:4px; }
+  .doc-empty .t { font-size:16px; color:#37352F; font-weight:600; }
+  .doc-empty .s { font-size:12.5px; color:#B4B2AD; }
+  .doc-empty .acts { display:flex; gap:10px; margin-top:14px; }
+  .doc-prev { max-width:780px; height:100%; margin:0 auto; padding:24px 28px; overflow:hidden; }
+  .dp-head { display:flex; align-items:center; gap:10px; }
+  .dp-head > .ic { width:17px; height:17px; color:#8A8880; }
+  .dp-head .t { font-size:17px; font-weight:600; color:#37352F; }
+  .dp-meta { font-size:12px; color:#787774; margin:8px 0 18px; padding-bottom:14px; border-bottom:1px solid #E9E8E3; }
+  .dp-note { font-size:11.5px; color:#B4B2AD; margin-top:4px; }
+  .m-cats { display:flex; gap:6px; padding:10px 14px; border-bottom:1px solid #F1F0EB; overflow-x:auto; flex:none; }
+  .m-cats span { border:1px solid #E0DFD9; border-radius:99px; font-size:11.5px; padding:3px 11px; color:#787774; white-space:nowrap; }
+  .m-cats span.on { background:#EFF2F4; border-color:#5F6C76; color:#5F6C76; }
+  /* 各视图网格：问答 44+232+1fr+264 / 文档·设置 44+232+1fr */
+  .desktop[data-v="docs"], .desktop[data-v="settings"] { grid-template-columns:44px 232px 1fr; }
+  .desktop[data-v="docs"] .rightbar, .desktop[data-v="settings"] .rightbar { display:none; }
+
+  /* 标注 */
+  .anno { position:absolute; z-index:20; font-size:11px; color:#B45309; background:#FFFBEB; border:1px dashed #F59E0B; border-radius:6px; padding:4px 8px; line-height:1.45; max-width:210px; pointer-events:none; }
+  .anno b { font-weight:700; }
+  body.hide-anno .anno { display:none; }
+
+  .legendbar { margin-top:26px; padding:14px 18px; background:#fff; border:1px solid #D8D6D0; border-radius:10px; font-size:12.5px; color:#666; line-height:1.8; max-width:1210px; }
+  .legendbar b { color:#37352F; }
+</style>
+</head>
+<body>
+
+<!-- ========== 图标 sprite（线性图标，currentColor 单色）========== -->
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true">
+  <symbol id="i-chat" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></symbol>
+  <symbol id="i-folder" viewBox="0 0 24 24"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.7-.9L9.6 3.9A2 2 0 0 0 7.9 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2z"/></symbol>
+  <symbol id="i-graph" viewBox="0 0 24 24"><circle cx="12" cy="5.5" r="2.4"/><circle cx="5.5" cy="18.5" r="2.4"/><circle cx="18.5" cy="18.5" r="2.4"/><path d="M10.9 7.6 6.6 16.4M13.1 7.6l4.3 8.8M8 18.5h8"/></symbol>
+  <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h9M17 18h3"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="15" cy="18" r="2"/></symbol>
+  <symbol id="i-moon" viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></symbol>
+  <symbol id="i-pulse" viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-file-text" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M16 13H8M14 17H8"/></symbol>
+  <symbol id="i-file" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></symbol>
+  <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a13.5 13.5 0 0 1 3.6 9A13.5 13.5 0 0 1 12 21a13.5 13.5 0 0 1-3.6-9A13.5 13.5 0 0 1 12 3z"/></symbol>
+  <symbol id="i-code" viewBox="0 0 24 24"><path d="m16 18 6-6-6-6M8 6l-6 6 6 6"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m10 8.5 5.5 3.5L10 15.5z"/></symbol>
+  <symbol id="i-download" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></symbol>
+  <symbol id="i-upload" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m17 8-5-5-5 5"/><path d="M12 3v12"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+  <symbol id="i-square" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2.5"/></symbol>
+  <symbol id="i-enter" viewBox="0 0 24 24"><path d="M20 4v7a4 4 0 0 1-4 4H4"/><path d="m9 10-5 5 5 5"/></symbol>
+  <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 1 15.7-6L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15.7 6L3 16"/><path d="M3 21v-5h5"/></symbol>
+  <symbol id="i-zap" viewBox="0 0 24 24"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/></symbol>
+  <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></symbol>
+  <symbol id="i-chev-d" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+  <symbol id="i-dots" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.3" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.3" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1.3" fill="currentColor" stroke="none"/></symbol>
+</svg>
+
+<h1>前端 v0.9 线框图 · 个人知识库重设计</h1>
+<div class="sub">低保真线框（灰阶 + 雾蓝 #8B9FAD 仅示意强调位）· 配套文档：<code>REDESIGN_PLAN.md</code> · 状态：<b>待审核，未写任何实现代码</b></div>
+
+<div class="controls">
+  <span class="lbl">视图</span>
+  <div class="grp" id="viewGrp">
+    <button data-v="ask" class="on">问答</button>
+    <button data-v="docs">文档</button>
+    <button data-v="settings">设置</button>
+  </div>
+  <span class="lbl">设备</span>
+  <div class="grp" id="devGrp">
+    <button data-d="desktop" class="on">桌面</button>
+    <button data-d="mobile">移动</button>
+  </div>
+  <span class="lbl">状态</span>
+  <button class="statebtn" id="tEmpty">问答：空白文档 ⇄ 已写入</button>
+  <button class="statebtn" id="tRight">右栏：开 ⇄ 关</button>
+  <button class="statebtn" id="tDrawer">文档：空态 ⇄ 预览</button>
+  <button class="statebtn" id="tCite">引用高亮演示</button>
+  <button class="statebtn" id="tAnno">显示/隐藏标注</button>
+  <span class="lbl">点击特效</span>
+  <select id="fxSel" class="fxsel">
+    <option value="rings" selected>rings 涟漪</option>
+    <option value="burst">burst 迸发</option>
+    <option value="particles">particles 粒子</option>
+    <option value="crosshair">crosshair 十字</option>
+    <option value="wavy">wavy 波纹</option>
+    <option value="sniper">sniper 狙击</option>
+    <option value="off">关</option>
+  </select>
+</div>
+
+<div class="frames">
+
+<!-- ======================= 桌面 ======================= -->
+<div class="frame-wrap" id="fDesktop">
+<div class="frame-title">DESKTOP ≥1024px · 44/232/自适应/264</div>
+<div class="desktop" id="desk">
+
+  <!-- ribbon -->
+  <div class="ribbon">
+    <div class="rib-icon on" data-nav="ask" title="问答"><svg class="ic"><use href="#i-chat"/></svg></div>
+    <div class="rib-icon" data-nav="docs" title="文档"><svg class="ic"><use href="#i-folder"/></svg></div>
+    <div class="rib-icon" data-nav="settings" title="设置"><svg class="ic"><use href="#i-sliders"/></svg></div>
+    <div class="rib-gap"></div>
+    <div class="rib-icon" title="主题"><svg class="ic"><use href="#i-moon"/></svg></div>
+    <div class="rib-icon" title="健康"><svg class="ic"><use href="#i-pulse"/></svg></div>
+  </div>
+
+  <!-- sidebar：随视图切换（问答=最近对话 / 文档=分区目录树 / 设置=分类锚点） -->
+  <div class="sidebar">
+    <!-- 问答侧栏 -->
+    <div class="sb-pane" data-for="ask">
+      <div class="sb-search"><span class="irow"><svg class="ic"><use href="#i-search"/></svg>搜索或提问…</span><span style="font-size:11px;color:#C5C3BD">&#8984;K</span></div>
+      <div class="sb-new"><svg class="ic"><use href="#i-plus"/></svg>新对话</div>
+      <div class="sb-sec">最近对话</div>
+      <div class="sb-conv on"><span class="t">说明书B的保修政策是什么</span><span class="tm">2分钟</span><svg class="ic del"><use href="#i-x"/></svg></div>
+      <div class="sb-conv"><span class="t">论文笔记A讲了什么</span><span class="tm">1小时</span><svg class="ic del"><use href="#i-x"/></svg></div>
+      <div class="sb-conv"><span class="t">parser.py 的入口在哪</span><span class="tm">昨天</span><svg class="ic del"><use href="#i-x"/></svg></div>
+      <div class="sb-conv"><span class="t">总结《某文章存档》要点</span><span class="tm">昨天</span><svg class="ic del"><use href="#i-x"/></svg></div>
+      <div class="sb-conv"><span class="t">RAG 召回策略对比</span><span class="tm">3天</span><svg class="ic del"><use href="#i-x"/></svg></div>
+      <div class="sb-conv" style="color:#C5C3BD"><span class="t">…（存本地，上限 50 条）</span></div>
+      <div class="anno sb-anno"><b>审核修订</b>：最近对话侧栏<b>仅在问答页显示</b>；标题=首问，点击恢复上下文，悬停出现删除图标</div>
+    </div>
+    <!-- 文档侧栏：分区目录树（按磁盘目录分组，可折叠） -->
+    <div class="sb-pane" data-for="docs">
+      <div class="sb-search"><span class="irow"><svg class="ic"><use href="#i-search"/></svg>搜索文件…</span></div>
+      <div class="sb-chips">
+        <span class="sb-chip on">全部 128</span><span class="sb-chip">md</span><span class="sb-chip">pdf</span><span class="sb-chip">html</span><span class="sb-chip">code</span><span class="sb-chip">video</span>
+      </div>
+      <div class="sb-tree" style="margin-top:8px">
+        <div class="sb-grp">
+          <div class="sb-gh"><svg class="ic chev"><use href="#i-chev-d"/></svg><span class="t">我的资料 · 监听目录</span><span class="n">86</span></div>
+          <div class="sb-gi">
+            <div class="sb-frow"><span class="t">论文笔记A.md</span><span class="tm">2分</span></div>
+            <div class="sb-frow"><span class="t">RAG评估方法笔记.md</span><span class="tm">4天</span></div>
+            <div class="sb-frow"><span class="t">ffmpeg常用命令.md</span><span class="tm">5天</span></div>
+            <div class="sb-frow"><span class="t">parser.py</span><span class="tm">3天</span></div>
+            <div class="sb-frow" style="color:#C5C3BD"><span class="t">… 共 86 项</span></div>
+          </div>
+        </div>
+        <div class="sb-grp">
+          <div class="sb-gh"><svg class="ic chev"><use href="#i-chev-d"/></svg><span class="t">uploads · 上传</span><span class="n">31</span></div>
+          <div class="sb-gi">
+            <div class="sb-frow on"><span class="t">说明书B.pdf</span><span class="tm busy">OCR</span></div>
+            <div class="sb-frow"><span class="t">deepseek-v3论文.pdf</span><span class="tm">1周</span></div>
+            <div class="sb-frow" style="color:#C5C3BD"><span class="t">… 共 31 项</span></div>
+          </div>
+        </div>
+        <div class="sb-grp closed">
+          <div class="sb-gh"><svg class="ic chev"><use href="#i-chev-d"/></svg><span class="t">clips · 网页摘录</span><span class="n">21</span></div>
+          <div class="sb-gi">
+            <div class="sb-frow"><span class="t">某文章存档.html</span><span class="tm">昨天</span></div>
+            <div class="sb-frow"><span class="t">Python协程教程.html</span><span class="tm">1周</span></div>
+          </div>
+        </div>
+        <div class="sb-grp">
+          <div class="sb-gh"><svg class="ic chev"><use href="#i-chev-d"/></svg><span class="t">bilibili · 视频笔记</span><span class="n">12</span></div>
+          <div class="sb-gi">
+            <div class="sb-frow"><span class="t">教程视频C</span><span class="tm busy">转写</span></div>
+            <div class="sb-frow" style="color:#C5C3BD"><span class="t">… 共 12 项</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="anno sb-anno"><b>审核修订</b>：文件列表改<b>分区目录树</b>（Obsidian 式）——分区=磁盘目录（监听目录/uploads/clips/bilibili），小三角点击折叠；条目纯文字缩进，右侧相对时间/任务角标；点条目 → 主区预览</div>
+    </div>
+
+    <!-- 设置侧栏：分类锚点 -->
+    <div class="sb-pane" data-for="settings">
+      <div class="sb-sec">分类</div>
+      <div class="sb-cat">访问口令</div>
+      <div class="sb-cat on">嵌入模型</div>
+      <div class="sb-cat">问答模型</div>
+      <div class="sb-cat">重排（可选）</div>
+      <div class="sb-cat">高级</div>
+      <div class="sb-cat">关于</div>
+      <div class="anno sb-anno">设置页侧栏=<b>分类锚点</b>：点击滚动到对应分组，滚动时反向高亮当前分组</div>
+    </div>
+  </div>
+
+  <!-- main -->
+  <div class="main">
+    <div class="topbar">
+      <span class="vname" id="vName">问答</span>
+      <span class="spacer"></span>
+      <div class="status-pill" title="向量/嵌入/问答/OCR"><i class="ok"></i><i class="ok"></i><i class="ok"></i><i></i></div>
+      <div class="btn-mini irow" id="tbUpload" style="display:none"><svg class="ic"><use href="#i-upload"/></svg>上传</div>
+    </div>
+
+    <!-- ========== 视图：问答（文档式直接书写，第六轮）========== -->
+    <div class="view" data-view="ask">
+      <!-- 空白文档 -->
+      <div class="ask-empty" id="askEmpty">
+        <div class="doc-edit">
+          <div class="ph">在文档里直接写下你的问题…<span class="caret"></span></div>
+          <div class="hint-line">像写文档一样打字 · <b>连续按两次 ⏎ 发送给 AI</b> · 单次 ⏎ 只是换行</div>
+        </div>
+      </div>
+      <!-- 已写入：问题 + AI 回答插入在下方 -->
+      <div class="ask-thread" id="askThread" style="display:none">
+        <div class="doc-edit">
+          <div class="q-block">说明书B.pdf 里的保修政策是什么？</div>
+          <div class="a-block">
+            <span class="ai-orb"><canvas class="ai-orb-cv" width="52" height="52"></canvas></span>根据说明书 B 的第 3 章《保修与服务》：<b>整机保修 24 个月</b>，主要部件保修 36 个月<span class="cite">[1]</span>。保修期自购买发票日期起计算，丢失发票则以出厂日期推算<span class="cite">[2]</span>。<br><br>
+            人为损坏、私自拆机与进液不在保修范围内<span class="cite">[1]</span>；维修进度可在官网凭序列号查询<span class="cite">[3]</span>。<span class="cite" id="demoCite">[2]</span>
+          </div>
+          <div class="cursor-line"><span class="caret"></span></div>
+          <div class="hint-line">继续往下写 = 继续追问，<b>两次 ⏎</b> 再次发送</div>
+        </div>
+        <div class="gen-pill"><svg class="ic"><use href="#i-square"/></svg>生成中 · Esc 停止</div>
+      </div>
+      <!-- 标注 -->
+      <div class="anno" style="top:12px; right:22px; max-width:215px"><b>审核修订（第六轮）</b>：<b>没有输入框</b>——问答区就是一篇可写文档，光标就位直接打字；<b>连续两次 ⏎ = 发送</b>，AI 回答流式插入在你的问题下方</div>
+      <div class="anno" style="top:170px; right:22px; max-width:200px">问题块 = 加粗墨色；回答块 = 左侧雾蓝细线的正文排版；<b>AI 生成中：文字前方显示粒子线圈动画</b>（本演示常驻，实际生成完成即隐藏）；回答完光标落回底部，继续写即追问</div>
+      <div class="anno" style="bottom:76px; right:22px; max-width:185px">生成中右下角浮 pill，Esc/点击停止；角标 [n] 联动右栏卡片</div>
+    </div>
+
+    <!-- ========== 视图：文档（侧栏文件列表 + 主区快速预览）========== -->
+    <div class="view" data-view="docs" style="display:none">
+      <!-- 空态：未选择文件 -->
+      <div class="doc-empty" id="docEmpty">
+        <svg class="ic big"><use href="#i-folder"/></svg>
+        <div class="t">从左侧选择文件快速预览</div>
+        <div class="s">或将文件拖到页面任意位置上传 · 支持网页 / B站链接入库</div>
+        <div class="acts">
+          <span class="btn-mini irow"><svg class="ic"><use href="#i-upload"/></svg>上传文件</span>
+          <span class="btn-mini irow"><svg class="ic"><use href="#i-plus"/></svg>网页 URL</span>
+          <span class="btn-mini irow"><svg class="ic"><use href="#i-plus"/></svg>B站视频</span>
+        </div>
+      </div>
+      <!-- 预览态：点击侧栏文件后 -->
+      <div class="doc-prev" id="docPrev" style="display:none">
+        <div class="dp-head">
+          <svg class="ic"><use href="#i-file"/></svg>
+          <span class="t">说明书B.pdf</span>
+          <span class="type" style="font-size:11px;color:#787774;background:#F1F0EB;border-radius:4px;padding:2px 7px">pdf</span>
+          <span style="font-size:12px;color:#B8860B">OCR 中</span>
+          <span style="flex:1"></span>
+          <span class="btn-mini irow"><svg class="ic"><use href="#i-refresh"/></svg>重新索引</span>
+          <span class="btn-mini irow" style="color:#C0392B"><svg class="ic"><use href="#i-trash"/></svg>删除</span>
+        </div>
+        <div class="dp-meta">pdf · 36 片段 · 1 小时前 · 4.2 MB · 来自 uploads/</div>
+        <div class="dp-body">
+          <div class="dr-sec">片段预览 · 前 3 / 36</div>
+          <div class="frag">…整机保修 24 个月，主要部件（电机/主控板）保修 36 个月。保修期自购买发票日期起计算…</div>
+          <div class="frag">…如发票遗失，将以机身序列号推算的出厂日期顺延 30 天作为保修起始…</div>
+          <div class="frag">…登录官网服务页，输入机身序列号可查询维修进度与历史记录…</div>
+          <div class="dp-note">全文已入库可被检索，预览不展示全部片段</div>
+        </div>
+      </div>
+      <div class="anno" style="top:52px; right:26px; max-width:200px"><b>审核修订</b>：主区=快速预览（元信息+片段+操作），原 640px 详情抽屉取消；未选文件时显示空态+上传三入口</div>
+      <div class="anno" style="bottom:60px; right:26px; max-width:190px">拖拽文件到页面任意位置 = 上传（拖入时出现虚线蒙层）；任务进行中在<b>侧栏条目</b>上显示状态角标</div>
+    </div>
+
+    <!-- ========== 视图：设置 ========== -->
+    <div class="view" data-view="settings" style="display:none">
+      <div class="settings"><div class="set-col">
+        <h2>设置</h2>
+        <div class="set-h">访问口令</div>
+        <div class="set-row"><span class="k">API Key</span><div class="set-in masked">••••••••••••<svg class="ic"><use href="#i-eye"/></svg></div></div>
+        <div class="set-h">嵌入模型</div>
+        <div class="set-row"><span class="k">Base URL</span><div class="set-in">https://open.bigmodel.cn/api/paas/v4</div></div>
+        <div class="set-row"><span class="k">API Key</span><div class="set-in masked">••••••••••••<svg class="ic"><use href="#i-eye"/></svg></div></div>
+        <div class="set-row"><span class="k">模型</span><div class="set-in">embedding-3</div></div>
+        <div class="set-h">问答模型</div>
+        <div class="set-row"><span class="k">模型</span><div class="set-in">glm-4.7</div></div>
+        <div class="set-row"><span class="k">引用条数 top_k</span><div class="set-in">6</div></div>
+        <div class="set-h">重排（可选）</div>
+        <div class="set-row"><span class="k">Base URL</span><div class="set-in">未配置</div></div>
+        <div class="set-h">高级</div>
+        <div class="set-row"><span class="k">B站 SESSDATA</span><div class="set-in masked">••••••••<svg class="ic"><use href="#i-eye"/></svg></div></div>
+        <div class="set-note">v0.9 · 数据目录只读展示 · 保存按钮吸底</div>
+      </div></div>
+      <div class="anno" style="top:120px; right:40px">Notion 式窄列 720px：H2 带 1px 下划线；密钥默认掩码；<b>字段与保存逻辑沿用现有代码</b>，只重排视觉</div>
+    </div>
+  </div>
+
+  <!-- rightbar -->
+  <div class="rightbar">
+    <div class="rb-h"><span>本次引用</span><span class="n">4</span></div>
+    <div class="cite-card" id="cc1"><div class="no">[1]</div><div class="t">说明书B.pdf · 片段12</div><div class="s">…整机保修 24 个月，主要部件保修 36 个月；人为损坏、私自拆机…</div></div>
+    <div class="cite-card hl" id="cc2"><div class="no">[2]</div><div class="t">说明书B.pdf · 片段14</div><div class="s">…如发票遗失，以序列号推算的出厂日期顺延 30 天作为保修起算日…</div></div>
+    <div class="cite-card" id="cc3"><div class="no">[3]</div><div class="t">说明书B.pdf · 片段21</div><div class="s">…官网服务页输入机身序列号可查询维修进度…</div></div>
+    <div class="anno" style="top:150px; right:8px; max-width:200px">右栏<b>默认折叠</b>，回答开始流式输出时 150ms 滑出；卡片=文档片段，点击→正文定位/打开文档</div>
+  </div>
+
+</div>
+</div>
+
+<!-- ======================= 移动 ======================= -->
+<div class="frame-wrap" id="fMobile" style="display:none">
+<div class="frame-title">MOBILE &lt;768px · 单列 + 抽屉 + 底部标签栏</div>
+<div class="mobile">
+  <div class="m-top"><span class="burger" id="mBurger"><svg class="ic"><use href="#i-menu"/></svg></span><span class="name" id="mName">问答</span>
+    <div class="status-pill"><i class="ok"></i><i class="ok"></i><i class="ok"></i><i></i></div>
+  </div>
+  <div class="m-body">
+    <div class="m-scrim" id="mScrim"></div>
+    <div class="m-drawer" id="mDrawer">
+      <div class="sb-search"><span class="irow"><svg class="ic"><use href="#i-search"/></svg>搜索或提问…</span></div>
+      <div class="sb-new"><svg class="ic"><use href="#i-plus"/></svg>新对话</div>
+      <div class="sb-sec">最近对话</div>
+      <div class="sb-conv on"><span class="t">说明书B的保修政策…</span><span class="tm">2分</span></div>
+      <div class="sb-conv"><span class="t">论文笔记A讲了什么</span><span class="tm">1时</span></div>
+      <div class="sb-conv"><span class="t">parser.py 的入口</span><span class="tm">昨天</span></div>
+      <div class="anno" style="position:relative; top:12px; left:0; max-width:220px">移动端：导航只靠<b>底部标签栏</b>（4 个），抽屉=搜索 + 最近对话</div>
+    </div>
+
+    <!-- 问答 -->
+    <div class="m-view" data-mview="ask">
+      <div class="doc-edit" id="mAskEmpty" style="padding:22px 18px 0; width:auto; max-width:none">
+        <div class="ph" style="font-size:14.5px">写下你的问题…<span class="caret"></span></div>
+        <div class="hint-line" style="font-size:11px">两次 ⏎ 发送 · 单次 ⏎ 换行</div>
+      </div>
+      <div class="doc-edit" id="mThread" style="display:none; padding:22px 18px 0; width:auto; max-width:none">
+        <div class="q-block" style="font-size:15px">说明书B的保修政策？</div>
+        <div class="a-block" style="font-size:14px"><span class="ai-orb" style="width:20px;height:20px;vertical-align:-5px;margin-right:7px"><canvas class="ai-orb-cv" width="44" height="44"></canvas></span>整机保修 24 个月，主要部件 36 个月<span class="cite">[1]</span>，自发票日起算<span class="cite">[2]</span>…</div>
+        <div class="cursor-line"><span class="caret"></span></div>
+      </div>
+      <div class="m-cites" id="mCites" style="display:none">
+        <div class="h">引用 2 条 ▴</div>
+        <div class="cite-card" style="margin:0"><div class="no">[1]</div><div class="t">说明书B.pdf · 片段12</div></div>
+      </div>
+      <div class="gen-pill" style="position:static; margin:auto 14px 12px; align-self:flex-start">生成中 · 点按停止</div>
+      <div class="anno" style="position:relative; top:0; left:14px; margin-bottom:12px; max-width:230px">移动端同文档式书写：键盘连按两次回车发送；右栏折叠为回答末尾"引用 N 条"区块</div>
+    </div>
+
+    <!-- 文档 -->
+    <div class="m-view" data-mview="docs" style="display:none">
+      <div class="docs">
+        <div class="doc-filters" style="overflow-x:auto">
+          <div class="f-tag on">全部</div><div class="f-tag">md</div><div class="f-tag">pdf</div><div class="f-tag">html</div><div class="f-tag">code</div><div class="f-tag">video</div>
+        </div>
+        <div class="doc-rows" style="padding:0 14px">
+          <div class="sb-gh" style="padding:0 2px"><svg class="ic chev"><use href="#i-chev-d"/></svg><span class="t">我的资料</span><span class="n">86</span></div>
+          <div class="doc-row"><svg class="ic"><use href="#i-file-text"/></svg><span class="t">论文笔记A.md</span><span class="type">md</span><span class="tm">2分</span></div>
+          <div class="sb-gh" style="padding:0 2px"><svg class="ic chev"><use href="#i-chev-d"/></svg><span class="t">uploads · 上传</span><span class="n">31</span></div>
+          <div class="doc-row"><svg class="ic"><use href="#i-file"/></svg><span class="t">说明书B.pdf</span><span class="type">pdf</span><span class="tm">1时</span></div>
+          <div class="doc-row"><svg class="ic"><use href="#i-globe"/></svg><span class="t">某文章存档.html</span><span class="type">html</span><span class="tm">昨天</span></div>
+          <div class="doc-row"><svg class="ic"><use href="#i-play"/></svg><span class="t">教程视频C</span><span class="type">video</span><span class="tm">昨天</span></div>
+        </div>
+        <div class="doc-foot"><span style="color:#5F6C76" class="irow"><svg class="ic"><use href="#i-plus"/></svg>URL / B站</span><span style="flex:1"></span><span>128 篇</span></div>
+      </div>
+      <div class="anno" style="bottom:60px; left:14px">移动端：点击行 → <b>全屏预览</b>（左上返回按钮）；上传走顶栏 ＋ 按钮</div>
+    </div>
+
+    <!-- 设置 -->
+    <div class="m-view" data-mview="settings" style="display:none">
+      <div class="m-cats"><span>口令</span><span class="on">嵌入</span><span>问答</span><span>重排</span><span>高级</span><span>关于</span></div>
+      <div class="settings" style="display:block;overflow-y:auto"><div class="set-col" style="width:auto;max-width:none;padding:20px 18px">
+        <h2 style="font-size:20px">设置</h2>
+        <div class="set-h">访问口令</div>
+        <div class="set-row"><div class="set-in masked" style="width:100%">••••••••••<svg class="ic"><use href="#i-eye"/></svg></div></div>
+        <div class="set-h">嵌入模型</div>
+        <div class="set-row"><div class="set-in" style="width:100%">https://open.bigmodel.cn/api/paas/v4</div></div>
+        <div class="set-note">移动端 label 收起为整行输入（竖排堆叠）</div>
+      </div></div>
+    </div>
+  </div>
+
+  <div class="m-tabs">
+    <div class="m-tab on" data-nav="ask"><svg class="ic"><use href="#i-chat"/></svg>问答</div>
+    <div class="m-tab" data-nav="docs"><svg class="ic"><use href="#i-folder"/></svg>文档</div>
+    <div class="m-tab" data-nav="settings"><svg class="ic"><use href="#i-sliders"/></svg>设置</div>
+  </div>
+</div>
+</div>
+
+</div><!-- /frames -->
+
+<div class="legendbar">
+  <b>审核修订 08-31</b>：侧栏整列改为「最近对话」——删掉与最左图标条重复的"视图"导航、删掉与文档视图重复的"最近文档"；对话历史存浏览器 localStorage（跨设备同步为可选项，见计划 §8）。<b>（第八轮）</b>AI 生成中：回答<b>文字前方显示粒子线圈动画</b>（OrbCoil canvas 移植，雾蓝、24px、生成完自动隐藏）。<br>  <b>（第七轮）</b>新增全局<b>点击特效</b>（Originkit 六模式 WAAPI 移植，雾蓝、reduced-motion 自动关）——顶部「点击特效」下拉可现场试效果选模式。<br>  <b>（第六轮）</b>问答改<b>文档式直接书写</b>：无输入框、光标直接打字、<b>连续两次 ⏎ 发送</b>、AI 回答插入在问题下方，续写即追问。<br>  <b>（第四轮）</b>文件列表改<b>分区目录树</b>：分区=磁盘目录、小三角折叠、纯文字条目（Obsidian 式，点分区标题可折叠）。<br>
+  <b>图例</b>：黄底虚线框 = 交互标注（可用顶部"显示/隐藏标注"关闭）；雾蓝仅示意强调位（链接 / 活动态 / 引用角标），最终灰阶基调见 <b>REDESIGN_PLAN.md §2</b>。<br>
+  <b>审核修订 08-31（第三轮）</b>：侧栏随视图切换——问答=最近对话（仅此页显示）/ 文档=文件列表 → 主区快速预览（原详情抽屉取消）/ 设置=<b>分类锚点</b>。<b>（第五轮）图谱功能整体砍掉</b>：视图、ribbon 图标、移动端标签、右栏相关文档迷你图谱全部移除，导航只剩问答/文档/设置。<br>
+  <b>联动演示</b>：顶栏"引用高亮演示"→ 正文角标 [2] 与右栏卡片 [2] 同步高亮；"问答：空态⇄对话中"切换两种状态；"文档：空态⇄预览"演示点击侧栏文件后的主区预览。<br>
+  <b>删除项</b>：圆球导航、hero 粒子、<b>知识图谱（整个功能）</b>、卡片化视觉 —— 详见计划 §5/§6。
+</div>
+
+<script>
+(function () {
+  var view = "ask", device = "desktop";
+  var names = { ask: "问答", docs: "文档", settings: "设置" };
+
+  function $(s, r) { return (r || document).querySelector(s); }
+  function $$(s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); }
+
+  function apply() {
+    // 框架显隐
+    $("#fDesktop").style.display = device === "desktop" ? "" : "none";
+    $("#fMobile").style.display = device === "mobile" ? "" : "none";
+    // 视图
+    $$(".view[data-view]").forEach(function (el) { el.style.display = el.getAttribute("data-view") === view ? "" : "none"; });
+    $$(".m-view[data-mview]").forEach(function (el) { el.style.display = el.getAttribute("data-mview") === view ? "" : "none"; });
+    $("#vName").textContent = names[view];
+    $("#mName").textContent = names[view];
+    $("#tbUpload").style.display = view === "docs" ? "" : "none";
+    // 侧栏随视图切换：pane 显隐 + 网格 data-v（非问答视图隐藏右栏由 CSS 处理）
+    var desk = $("#desk");
+    if (desk) desk.setAttribute("data-v", view);
+    $$(".sb-pane").forEach(function (el) { el.style.display = el.getAttribute("data-for") === view ? "block" : "none"; });
+    // 导航高亮
+    $$("[data-nav]").forEach(function (el) {
+      var on = el.getAttribute("data-nav") === view;
+      el.classList.toggle("on", on);
+    });
+  }
+
+  $("#viewGrp").addEventListener("click", function (e) {
+    var b = e.target.closest("button"); if (!b) return;
+    $$("#viewGrp button").forEach(function (x) { x.classList.remove("on"); });
+    b.classList.add("on"); view = b.getAttribute("data-v"); apply();
+  });
+  $("#devGrp").addEventListener("click", function (e) {
+    var b = e.target.closest("button"); if (!b) return;
+    $$("#devGrp button").forEach(function (x) { x.classList.remove("on"); });
+    b.classList.add("on"); device = b.getAttribute("data-d"); apply();
+  });
+  document.addEventListener("click", function (e) {
+    var n = e.target.closest("[data-nav]");
+    if (!n) return;
+    view = n.getAttribute("data-nav");
+    $$("#viewGrp button").forEach(function (x) { x.classList.toggle("on", x.getAttribute("data-v") === view); });
+    apply();
+  });
+
+  // 状态开关
+  var empty = true;
+  $("#tEmpty").addEventListener("click", function () {
+    empty = !empty;
+    $("#askEmpty").style.display = empty ? "" : "none";
+    $("#askThread").style.display = empty ? "none" : "";
+    var mE = $("#mAskEmpty"), mT = $("#mThread"), mC = $("#mCites");
+    if (mE) { mE.style.display = empty ? "" : "none"; mT.style.display = empty ? "none" : ""; mC.style.display = empty ? "none" : ""; }
+    this.classList.toggle("on", !empty);
+  });
+  var rightBtn = $("#tRight");
+  rightBtn.addEventListener("click", function () {
+    var d = $("#desk"); d.classList.toggle("right-collapsed");
+    this.classList.toggle("on", !d.classList.contains("right-collapsed"));
+  });
+  rightBtn.classList.add("on");
+  var prevOn = false;
+  $("#tDrawer").addEventListener("click", function () {
+    prevOn = !prevOn;
+    $("#docEmpty").style.display = prevOn ? "none" : "";
+    $("#docPrev").style.display = prevOn ? "" : "none";
+    this.classList.toggle("on", prevOn);
+  });
+  $("#tCite").addEventListener("click", function () {
+    var on = this.classList.toggle("on");
+    $("#cc2").classList.toggle("hl", on);
+    var c = $("#demoCite"); if (c) c.style.background = on ? "#EFF2F4" : "";
+  });
+  var annoBtn = $("#tAnno");
+  annoBtn.addEventListener("click", function () {
+    document.body.classList.toggle("hide-anno");
+    this.classList.toggle("on", document.body.classList.contains("hide-anno"));
+  });
+  annoBtn.classList.add("on");
+  document.addEventListener("click", function (e) {
+    var gh = e.target.closest(".sb-gh");
+    if (gh && !e.target.closest("[data-nav]")) { gh.parentElement.classList.toggle("closed"); }
+  });
+
+  // ===== 点击特效（Originkit 六模式移植，WAAPI 零依赖；雾蓝；reduced-motion 全关）=====
+  var FX_COLOR = "#8B9FAD", fxMode = "rings";
+  var fxLayer = document.createElement("div");
+  fxLayer.style.cssText = "position:fixed;inset:0;pointer-events:none;z-index:9999";
+  document.body.appendChild(fxLayer);
+  var fxReduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var SVGNS = "http://www.w3.org/2000/svg";
+
+  function fxNode(tag, attrs, css) {
+    var el = tag === "svg" ? document.createElementNS(SVGNS, "svg")
+          : document.createElementNS(SVGNS, tag);
+    for (var k in attrs) el.setAttribute(k, attrs[k]);
+    if (css) el.style.cssText = css;
+    fxLayer.appendChild(el);
+    return el;
+  }
+  function fxSvg(x, y, size, rot) {
+    var s = fxNode("svg", { width: size, height: size },
+      "position:absolute;overflow:visible;left:" + (x - size / 2) + "px;top:" + (y - size / 2) + "px" +
+      (rot ? ";transform:rotate(" + rot + "deg)" : ""));
+    return s;
+  }
+  function kill(el, ms) { setTimeout(function () { el.remove(); }, ms + 60); }
+  function lineIn(g, x1, y1, x2, y2) {
+    var l = document.createElementNS(SVGNS, "line");
+    l.setAttribute("x1", x1); l.setAttribute("y1", y1);
+    l.setAttribute("x2", x2); l.setAttribute("y2", y2);
+    l.setAttribute("stroke", FX_COLOR); l.setAttribute("stroke-width", 2);
+    l.setAttribute("stroke-linecap", "square");
+    g.appendChild(l); return l;
+  }
+
+  var FX = {
+    rings: function (x, y) {
+      var size = 90, s = fxSvg(x, y, size);
+      var c = fxNode("circle", { cx: size / 2, cy: size / 2, r: size / 4, fill: "none", stroke: FX_COLOR, "stroke-width": 2 });
+      s.appendChild(c);
+      s.animate([{ transform: "scale(0.5)", opacity: 1 }, { transform: "scale(2)", opacity: 0 }],
+        { duration: 300, easing: "cubic-bezier(0.16,1,0.3,1)", fill: "forwards" });
+      c.animate([{ strokeWidth: "2px" }, { strokeWidth: "0.5px" }], { duration: 300, fill: "forwards" });
+      kill(s, 300);
+    },
+    burst: function (x, y) {
+      var size = 90, s = fxSvg(x, y, size), cx = size / 2, cy = size / 2, D = 300;
+      [45, 80, 115, 150].forEach(function (deg) {
+        var a = deg * Math.PI / 180;
+        var l = lineIn(s, cx + size * 0.1 * Math.cos(a), cy - size * 0.1 * Math.sin(a),
+                          cx + size * 0.25 * Math.cos(a), cy - size * 0.25 * Math.sin(a));
+        l.animate([
+          { transform: "translate(0,0)", strokeWidth: "2px" },
+          { transform: "translate(" + (size / 4 * Math.cos(a)) + "px," + (-size / 4 * Math.sin(a)) + "px)", strokeWidth: "0.5px" }
+        ], { duration: D, easing: "cubic-bezier(0.22,1,0.36,1)", fill: "forwards" });
+      });
+      kill(s, D);
+    },
+    particles: function (x, y) {
+      var size = 90, D = 300;
+      for (var i = 0; i < 8; i++) {
+        (function () {
+          var a = i * 45 * Math.PI / 180;
+          var dist = size * 0.2 + Math.random() * size * 0.3;
+          var d = document.createElement("div");
+          d.style.cssText = "position:absolute;border-radius:50%;background:" + FX_COLOR +
+            ";left:" + (x - 1) + "px;top:" + (y - 1) + "px;width:2px;height:2px";
+          fxLayer.appendChild(d);
+          d.animate([
+            { width: "0px", height: "0px", transform: "translate(0,0)" },
+            { width: "2px", height: "2px", transform: "translate(0,0)", offset: 0.2 },
+            { width: "2px", height: "2px", transform: "translate(" + Math.cos(a) * dist + "px," + Math.sin(a) * dist + "px)", offset: 0.6 },
+            { width: "0px", height: "0px", transform: "translate(" + Math.cos(a) * dist + "px," + Math.sin(a) * dist + "px)" }
+          ], { duration: D, easing: "cubic-bezier(0.22,1,0.36,1)", fill: "forwards" });
+          kill(d, D);
+        })();
+      }
+    },
+    crosshair: function (x, y) {
+      var size = 90, s = fxSvg(x, y, size), cx = size / 2, cy = size / 2, len = size * 0.3, D = 240;
+      [0, 90, 180, 270].forEach(function (deg) {
+        var a = deg * Math.PI / 180, sx = 20;
+        var l = lineIn(s, cx + sx * Math.cos(a), cy - sx * Math.sin(a), cx, cy);
+        var ex = (sx + len) * Math.cos(a), ey = -(sx + len) * Math.sin(a);
+        l.animate([
+          { transform: "translate(0,0)", strokeWidth: "2px" },
+          { transform: "translate(" + ex + "px," + ey + "px)", strokeWidth: "0.5px" }
+        ], { duration: D, easing: "cubic-bezier(0.22,1,0.36,1)", fill: "forwards" });
+      });
+      kill(s, D);
+    },
+    wavy: function (x, y) {
+      var size = 90, s = fxSvg(x, y, size), cx = size / 2, cy = size / 2, D = 300;
+      [45, 90, 135, 180].forEach(function (deg) {
+        var rad = deg * Math.PI / 180, r0 = size * 0.1, r1 = size * 0.5, w = size * 0.05;
+        var sx = cx + r0 * Math.cos(rad), sy = cy - r0 * Math.sin(rad);
+        var ex = cx + r1 * Math.cos(rad), ey = cy - r1 * Math.sin(rad);
+        var mx = (sx + ex) / 2, my = (sy + ey) / 2;
+        var c1x = mx + w * Math.cos(rad + Math.PI / 2), c1y = my - w * Math.sin(rad + Math.PI / 2);
+        var p = document.createElementNS(SVGNS, "path");
+        p.setAttribute("d", "M " + sx + " " + sy + " Q " + c1x + " " + c1y + " " + mx + " " + my + " T " + ex + " " + ey);
+        p.setAttribute("stroke", FX_COLOR); p.setAttribute("stroke-width", 2);
+        p.setAttribute("stroke-linecap", "round"); p.setAttribute("fill", "none");
+        s.appendChild(p);
+        var L = p.getTotalLength() || 40;
+        p.animate([
+          { strokeDasharray: "1," + L, strokeDashoffset: 0, strokeWidth: "2px", opacity: 1 },
+          { strokeDasharray: L + "," + L, strokeDashoffset: -L, strokeWidth: "2px", opacity: 1, offset: 0.6 },
+          { strokeDasharray: L + "," + L, strokeDashoffset: -L, strokeWidth: "0.5px", opacity: 0 }
+        ], { duration: D, easing: "cubic-bezier(0.22,1,0.36,1)", fill: "forwards" });
+      });
+      kill(s, D);
+    },
+    sniper: function (x, y) {
+      var size = 90, D = 300;
+      var s = fxSvg(x, y, size), cx = size / 2, cy = size / 2, len = size * 0.2;
+      [0, 90, 180, 270].forEach(function (deg) {
+        var a = deg * Math.PI / 180, r0 = 5;
+        var l = lineIn(s, cx + r0 * Math.cos(a), cy - r0 * Math.sin(a),
+                          cx + (r0 + len) * Math.cos(a), cy - (r0 + len) * Math.sin(a));
+        l.animate([
+          { transform: "translate(0,0)", strokeWidth: "2px" },
+          { transform: "translate(" + ((r0 + len) * Math.cos(a)) + "px," + (-(r0 + len) * Math.sin(a)) + "px)", strokeWidth: "0.5px" }
+        ], { duration: D, easing: "cubic-bezier(0.22,1,0.36,1)", fill: "forwards" });
+      });
+      [30, 90, 150, 210, 270, 330].forEach(function (deg) {
+        var a = deg * Math.PI / 180, dist = size * 0.4;
+        var d = document.createElement("div");
+        d.style.cssText = "position:absolute;background:" + FX_COLOR +
+          ";left:" + (x - 1) + "px;top:" + (y - 1) + "px;width:2px;height:2px";
+        fxLayer.appendChild(d);
+        d.animate([
+          { transform: "translate(0,0)", width: "2px", height: "2px" },
+          { transform: "translate(" + Math.cos(a) * dist + "px," + Math.sin(a) * dist + "px)", width: "2px", height: "2px", offset: 0.6 },
+          { transform: "translate(" + Math.cos(a) * dist + "px," + Math.sin(a) * dist + "px)", width: "0px", height: "0px" }
+        ], { duration: D, easing: "cubic-bezier(0.22,1,0.36,1)", fill: "forwards" });
+        kill(d, D);
+      });
+      kill(s, D);
+    }
+  };
+
+  document.addEventListener("click", function (e) {
+    if (fxMode === "off" || fxReduce) return;
+    var fn = FX[fxMode]; if (fn) fn(e.clientX, e.clientY);
+  });
+  document.getElementById("fxSel").addEventListener("change", function () { fxMode = this.value; });
+
+  // ===== AI 生成中动画：OrbCoil 粒子线圈（Originkit 移植，canvas 2d 零依赖）=====
+  (function () {
+    var TAU = Math.PI * 2, PERIOD = 6, BASE_SPREAD = 0.3, PERSPECTIVE = 3.5, MIN_RADIUS = 0.6, MAX_DOTS = 1024;
+    var RAD = Math.PI / 180;
+    var reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    function spin(p, yaw, pitch) {
+      var ca = Math.cos(yaw), sa = Math.sin(yaw);
+      var rx = p[0] * ca - p[2] * sa, rz = p[0] * sa + p[2] * ca;
+      var co = Math.cos(pitch), so = Math.sin(pitch);
+      var ry = p[1] * co - rz * so;
+      return [rx, ry, p[1] * so + rz * co, p[3], p[4], p[5]];
+    }
+    function frame(t, P, out) {
+      var n = 150, turns = 2 + 6 * (0.5 - 0.5 * Math.cos(TAU * t));
+      for (var i = 0; i < n; i += 1) {
+        var u = (i / n + t) % 1, th = Math.PI * u, sr = Math.sin(th);
+        var az = u * TAU * turns + TAU * t;
+        var f = Math.pow(Math.sin(Math.PI * u), 0.45);
+        out.push(spin([Math.cos(az) * sr, Math.cos(th), Math.sin(az) * sr, 0.6 + 0.9 * f, f, i % 15 === 0 ? P.acc : P.dot], 0.3, 0.36));
+      }
+    }
+    function project(pts, size, P, emit) {
+      var c = size / 2, R = size * BASE_SPREAD * P.sp, yaw = P.yw + TAU * P.sn * P.t;
+      var list = [];
+      for (var i = 0; i < pts.length; i++) {
+        var q = spin(pts[i], yaw, P.pc), z = q[2];
+        var s = PERSPECTIVE / (PERSPECTIVE - z);
+        var f = Math.max(0, Math.min(1, (z + 1.1) / 2.2));
+        list.push([c + q[0] * R * s, c + q[1] * R * s,
+          0.4 + 1.6 * f * s * (q[3] === undefined ? 1 : q[3]),
+          (0.07 + 0.93 * Math.pow(f, 1.55)) * (q[4] === undefined ? 1 : q[4]),
+          q[5] || P.dot, z]);
+      }
+      list.sort(function (a, b) { return a[5] - b[5]; });
+      for (var k = 0; k < list.length; k++) emit(list[k][0], list[k][1], list[k][2], list[k][3], list[k][4]);
+    }
+    function autoFit(size, P) {
+      var half = size / 2, ext = 0;
+      function emit(x, y, r, a) { if (a <= 0.05 || r <= 0.15) return; ext = Math.max(ext, Math.abs(x - half) + 0.5 * r, Math.abs(y - half) + 0.5 * r); }
+      for (var k = 0; k < 20; k++) {
+        var probe = { n: 1, sp: P.sp, ds: 1, yw: P.restTurn, sn: P.sn, pc: P.restTilt, t: k / 20, dot: "#fff", acc: "#fff" };
+        var out = []; frame(probe.t, probe, out); project(out, size, probe, emit);
+      }
+      return ext > 1 ? Math.max(0.55, Math.min(1.7, 0.415 * size / ext)) : 1;
+    }
+    function dotScaleFor(size) { return size <= 46 ? 0.4 : 0.4 + ((size - 46) / 144) * 0.6; }
+
+    function startOrb(canvas) {
+      var ctx = canvas.getContext("2d");
+      if (!ctx) return;
+      var size = canvas.width;                       // 属性像素（含 DPR 2）
+      var P = {
+        n: 1, sp: 0.4, ds: dotScaleFor(size) * 1.31,
+        yw: 5 * RAD, sn: 3, pc: -45 * RAD,
+        restTurn: 5 * RAD, restTilt: -45 * RAD,
+        t: 0, dot: "#A5B4BF", acc: "#A5B4BF"
+      };
+      var fit = autoFit(size, P);
+      var phase = 0, last = performance.now(), stopped = false;
+      function drawFrame(now) {
+        if (stopped) return;
+        var dt = Math.min(0.05, (now - last) / 1000); last = now;
+        phase = (phase + dt * 1.92 / PERIOD) % 1;
+        ctx.clearRect(0, 0, size, size);
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        var out = []; frame(phase, P, out);
+        var drawn = 0, half = size / 2;
+        project(out, size, P, function (x, y, r, a, col) {
+          if (drawn >= MAX_DOTS) return;
+          var rr = r * (0.55 + 0.45 * fit);
+          if (rr <= 0.05 || a <= 0.004) return;
+          var cx = half + (x - half) * fit, cy = half + (y - half) * fit;
+          var dr = rr, da = Math.min(1, a);
+          if (dr < MIN_RADIUS) { da *= (dr / MIN_RADIUS) * (dr / MIN_RADIUS); dr = MIN_RADIUS; }
+          ctx.globalAlpha = da; ctx.fillStyle = col;
+          ctx.beginPath(); ctx.arc(cx, cy, dr, 0, TAU); ctx.fill();
+          drawn += 1;
+        });
+        ctx.globalAlpha = 1;
+        if (!reduce) requestAnimationFrame(drawFrame);
+      }
+      requestAnimationFrame(drawFrame);
+      document.addEventListener("visibilitychange", function () {
+        if (reduce || stopped) return;
+        if (document.hidden) { stopped = true; }
+        else { stopped = false; last = performance.now(); requestAnimationFrame(drawFrame); }
+      });
+    }
+    setTimeout(function () {
+      var cans = document.querySelectorAll("canvas.ai-orb-cv");
+      for (var i = 0; i < cans.length; i++) startOrb(cans[i]);
+    }, 0);
+  })();
+  $("#mBurger").addEventListener("click", function () {
+    $("#mDrawer").classList.toggle("show");
+    $("#mScrim").classList.toggle("show");
+  });
+  $("#mScrim").addEventListener("click", function () {
+    $("#mDrawer").classList.remove("show"); this.classList.remove("show");
+  });
+
+  // 直达参数（file:// 下查询串会被丢弃，故同时支持 hash）：#view=ask|docs|settings&device=desktop|mobile&state=thread,drawer,cite,noanno,noright,mdrawer
+  try {
+    var qs = location.search || (location.hash ? "?" + location.hash.slice(1) : "");
+    var q = new URLSearchParams(qs);
+    if (q.get("view")) { view = q.get("view"); $$("#viewGrp button").forEach(function (x) { x.classList.toggle("on", x.getAttribute("data-v") === view); }); }
+    if (q.get("device")) { device = q.get("device"); $$("#devGrp button").forEach(function (x) { x.classList.toggle("on", x.getAttribute("data-d") === device); }); }
+    var st = (q.get("state") || "").split(",");
+    if (st.indexOf("thread") >= 0) { $("#tEmpty").click(); }
+    if (st.indexOf("noright") >= 0) { $("#tRight").click(); }
+    if (st.indexOf("preview") >= 0 || st.indexOf("drawer") >= 0) { $("#tDrawer").click(); }
+    if (st.indexOf("cite") >= 0) { $("#tCite").click(); }
+    if (st.indexOf("noanno") >= 0) { $("#tAnno").click(); }
+    if (st.indexOf("mdrawer") >= 0) { $("#mBurger").click(); }
+    if (q.get("fx")) { fxMode = q.get("fx"); }
+    if (st.indexOf("fxbang") >= 0) {
+      document.body.dispatchEvent(new MouseEvent("click", { clientX: 640, clientY: 380, bubbles: true }));
+    }
+  } catch (e) { /* file:// 下个别浏览器无 search，忽略 */ }
+
+  apply();
+})();
+</script>
+</body>
+</html>

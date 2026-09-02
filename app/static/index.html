@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>知识库</title>
+<meta name="description" content="个人知识库：检索与带引用的问答">
+<meta name="theme-color" content="#F6F4EF">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" type="image/png" href="/icons/icon-192.png">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="知识库">
+<link rel="stylesheet" href="/css/app.css">
+</head>
+<body data-view="ask">
+
+<!-- 图标 sprite（Lucide 风：24 网格 / 1.8px 描边 / currentColor） -->
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true">
+  <symbol id="i-chat" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></symbol>
+  <symbol id="i-folder" viewBox="0 0 24 24"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.7-.9L9.6 3.9A2 2 0 0 0 7.9 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2z"/></symbol>
+  <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h9M17 18h3"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="15" cy="18" r="2"/></symbol>
+  <symbol id="i-moon" viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></symbol>
+  <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></symbol>
+  <symbol id="i-pulse" viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-chev-d" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+  <symbol id="i-chev-r" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+  <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 1 15.7-6L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15.7 6L3 16"/><path d="M3 21v-5h5"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></symbol>
+  <symbol id="i-upload" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m17 8-5-5-5 5"/><path d="M12 3v12"/></symbol>
+  <symbol id="i-dots" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.3" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.3" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1.3" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></symbol>
+  <symbol id="i-panel" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/></symbol>
+  <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></symbol>
+  <symbol id="i-image" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21"/></symbol>
+  <symbol id="i-quiz" viewBox="0 0 24 24"><path d="M22 10 12 5 2 10l10 5 10-5z"/><path d="M6 12.5V17c0 1.7 2.7 3 6 3s6-1.3 6-3v-4.5"/><path d="M22 10v6"/></symbol>
+  <symbol id="i-send" viewBox="0 0 24 24"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></symbol>
+  <symbol id="i-stop" viewBox="0 0 24 24"><rect x="6.5" y="6.5" width="11" height="11" rx="2" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-back" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="m7 4 13 8-13 8Z"/></symbol>
+  <symbol id="i-file" viewBox="0 0 24 24"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></symbol>
+  <symbol id="i-file-text" viewBox="0 0 24 24"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></symbol>
+  <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></symbol>
+  <symbol id="i-code" viewBox="0 0 24 24"><path d="m16 18 6-6-6-6"/><path d="m8 6-6 6 6 6"/></symbol>
+  <symbol id="i-rename" viewBox="0 0 24 24"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></symbol>
+</svg>
+
+<div class="app" id="app">
+
+  <!-- Ribbon：视图导航 + 主题/侧栏/健康 -->
+  <nav class="ribbon" aria-label="主导航">
+    <a class="rib-btn on" href="#/" data-route="#/" title="问答" aria-label="问答"><svg class="ic"><use href="#i-chat"/></svg></a>
+    <a class="rib-btn" href="#/docs" data-route="#/docs" title="文档" aria-label="文档"><svg class="ic"><use href="#i-folder"/></svg></a>
+    <a class="rib-btn" href="#/quiz" data-route="#/quiz" title="测验" aria-label="测验"><svg class="ic"><use href="#i-quiz"/></svg></a>
+    <a class="rib-btn" href="#/settings" data-route="#/settings" title="设置" aria-label="设置"><svg class="ic"><use href="#i-sliders"/></svg></a>
+    <span class="rib-gap"></span>
+    <button class="rib-btn" id="btnTheme" title="切换主题" aria-label="切换主题">
+      <svg class="ic i-sun"><use href="#i-sun"/></svg>
+      <svg class="ic i-moon" hidden><use href="#i-moon"/></svg>
+    </button>
+    <button class="rib-btn only-desktop" id="btnSb" title="收起/展开侧栏" aria-label="收起或展开侧栏"><svg class="ic"><use href="#i-panel"/></svg></button>
+    <span class="rib-health" id="health" title="服务状态"></span>
+  </nav>
+
+  <!-- 侧栏：随视图切换（问答=最近对话 / 文档=分区目录树 / 设置=分类锚点） -->
+  <aside class="sidebar" id="sidebar">
+
+    <div class="sb-pane" data-for="ask">
+      <div class="sb-search irow" id="askSearchWrap">
+        <svg class="ic"><use href="#i-search"/></svg>
+        <input id="askSearch" type="text" placeholder="搜索或提问…" autocomplete="off">
+        <kbd>⌘K</kbd>
+      </div>
+      <button class="sb-new" id="btnNewThread"><svg class="ic"><use href="#i-plus"/></svg>新对话</button>
+      <div class="sb-cap">最近对话</div>
+      <div class="sb-list" id="threadList"></div>
+    </div>
+
+    <div class="sb-pane" data-for="docs" hidden>
+      <div class="url-row-sb">
+        <input type="url" id="urlIn" placeholder="粘贴网页 / B站 / 抖音链接" autocomplete="off">
+        <button class="sb-new" id="btnAddLink" title="入库" aria-label="入库"><svg class="ic"><use href="#i-plus"/></svg></button>
+      </div>
+      <div class="sb-list" id="docTree"></div>
+    </div>
+
+    <div class="sb-pane" data-for="settings" hidden>
+      <div class="sb-cap">分类</div>
+      <div class="sb-list" id="setCats"></div>
+    </div>
+
+    <div class="sb-pane" data-for="quiz" hidden>
+      <div class="qz-side">
+        <input type="text" id="qzFocus" placeholder="输入主题" maxlength="40">
+        <div class="seg" id="qzCountSeg">
+          <button data-n="10" class="on">10 题</button><button data-n="30">30 题</button><button data-n="50">50 题</button>
+        </div>
+        <button class="sb-new" id="qzGen"><svg class="ic"><use href="#i-plus"/></svg>出题</button>
+      </div>
+      <div class="sb-cap">历史测验</div>
+      <div class="sb-list" id="qzList"></div>
+    </div>
+
+  </aside>
+  <div class="sb-resize" id="sbResize" title="拖动调整宽度，双击恢复默认" aria-hidden="true"></div>
+  <div class="rb-resize" id="rbResize" title="拖动调整宽度，双击恢复默认" aria-hidden="true"></div>
+
+  <!-- 主区 -->
+  <main class="main">
+    <header class="topbar">
+      <button class="rib-btn only-mobile" id="btnDrawer" aria-label="打开菜单"><svg class="ic"><use href="#i-menu"/></svg></button>
+      <span class="vname" id="vName">问答</span>
+      <span class="spacer"></span>
+      <span class="task-badge" id="taskBadge" hidden></span>
+      <button class="bar-txt only-mobile" id="mBtnLink" hidden><svg class="ic"><use href="#i-link"/></svg>链接</button>
+      <button class="rib-btn only-mobile" id="btnThemeM" aria-label="切换主题"><svg class="ic"><use href="#i-moon"/></svg></button>
+      <button class="mini-btn irow" id="btnUpload" hidden><svg class="ic"><use href="#i-upload"/></svg>上传</button>
+    </header>
+
+    <!-- 问答：可写文档 -->
+    <section class="view view-ask" id="viewAsk">
+      <div class="doc-col">
+        <div class="doc-notice" id="askNotice" hidden></div>
+        <div class="m-hero only-mobile" id="mHero" hidden></div>
+        <div class="editor" id="editor" contenteditable="true" spellcheck="false"
+             data-ph="问点什么…"></div>
+      </div>
+      <!-- 移动端底部输入条（替代桌面“两次回车发送”） -->
+      <div class="m-composer only-mobile">
+        <textarea id="mAskIn" rows="1" placeholder="问点什么…"></textarea>
+        <button class="m-send" id="mSend" aria-label="发送"><svg class="ic" id="mSendIc"><use href="#i-send"/></svg></button>
+      </div>
+    </section>
+
+    <!-- 文档：移动端平铺列表（桌面用侧栏树）+ 快速预览 -->
+    <section class="view view-docs" id="viewDocs" hidden>
+      <div class="m-docs only-mobile" id="mDocs"></div>
+      <div class="doc-prev" id="docPrev" hidden></div>
+      <div class="drop-mask" id="dropMask" hidden><div class="drop-frame">松手上传到监听目录</div></div>
+      <input type="file" id="fileIn" multiple hidden>
+    </section>
+
+    <!-- 测验：移动端主区配置+历史（桌面用侧栏）+ 答题层 #qzStage -->
+    <section class="view view-quiz" id="viewQuiz" hidden>
+      <div class="qz-m-home only-mobile" id="qzHome">
+        <div class="qz-m-new">
+          <div class="sc-t">出题</div>
+          <input type="text" id="qzFocusM" placeholder="输入主题" maxlength="40" autocomplete="off">
+          <div class="seg" id="qzCountSegM">
+            <button data-n="10" class="on">10 题</button><button data-n="30">30 题</button><button data-n="50">50 题</button>
+          </div>
+          <button class="btn primary" id="qzGenM" style="width:100%;margin-top:10px"><svg class="ic" style="width:14px;height:14px"><use href="#i-plus"/></svg>出题</button>
+        </div>
+        <div class="m-grp-h">历史测验</div>
+        <div id="qzMList"></div>
+      </div>
+      <div id="qzStage">
+        <div class="qz-empty-state" id="qzEmpty">
+          <svg class="ic"><use href="#i-quiz"/></svg>
+          <div class="t">输入主题开始出题</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 设置：分类锚点 + 表单 -->
+    <section class="view view-settings" id="viewSettings" hidden></section>
+  </main>
+
+  <!-- 右栏：本次引用（仅问答，回答时自动展开） -->
+  <aside class="rightbar" id="rightbar">
+    <div class="rb-h"><span>本次引用</span><span class="rb-n" id="rbCount">0</span>
+      <button class="rib-btn rb-close" id="rbClose" aria-label="收起引用栏"><svg class="ic"><use href="#i-x"/></svg></button>
+    </div>
+    <div class="rb-cards" id="rbCards"><p class="rb-empty">回答后这里显示引用来源</p></div>
+  </aside>
+</div>
+
+<!-- 移动端底部标签栏 -->
+<nav class="tabbar" aria-label="主导航">
+  <a class="tab on" href="#/" data-route="#/"><svg class="ic"><use href="#i-chat"/></svg>问答</a>
+  <a class="tab" href="#/docs" data-route="#/docs"><svg class="ic"><use href="#i-folder"/></svg>文档</a>
+  <a class="tab" href="#/quiz" data-route="#/quiz"><svg class="ic"><use href="#i-quiz"/></svg>测验</a>
+  <a class="tab" href="#/settings" data-route="#/settings"><svg class="ic"><use href="#i-sliders"/></svg>设置</a>
+</nav>
+
+<!-- 移动端抽屉遮罩 -->
+<div class="scrim" id="scrim" hidden></div>
+
+<!-- 移动端底部弹层（引用 / 链接入库） -->
+<div class="sheet-wrap only-mobile" id="mSheetWrap" hidden><div class="sheet" id="mSheet"></div></div>
+
+<div id="toasts" aria-live="polite"></div>
+
+<script src="/js/ai-orb.js"></script>
+<script src="/js/app.js"></script>
+</body>
+</html>

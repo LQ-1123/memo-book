@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI 加载球 · 逐帧动画分析</title>
+<style>
+  :root {
+    --bg: #F6F4EF; --pane: #FFFFFF; --hover: #F1F0EB;
+    --div: #E9E8E3; --div2: #D8D6D0;
+    --t1: #37352F; --t2: #787774; --t3: #B4B2AD;
+    --acc: #8B9FAD; --acc-t: #5F6C76; --acc-w: #EFF2F4;
+    --dot: #A5B4BF; --dark: #262626;
+    --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--t1);
+    font: 15px/1.75 -apple-system, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  }
+  .wrap { max-width: 1060px; margin: 0 auto; padding: 40px 24px 80px; }
+  header h1 { font-size: 30px; margin: 0 0 6px; letter-spacing: -0.5px; }
+  header .sub { color: var(--t2); font-size: 14px; }
+  header .sub code { background: var(--acc-w); color: var(--acc-t); padding: 1px 6px; border-radius: 4px; font-size: 12.5px; font-family: var(--mono); }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 18px 0 0; }
+  .chip { background: var(--pane); border: 1px solid var(--div); border-radius: 999px; padding: 3px 12px; font-size: 12.5px; color: var(--t2); }
+  .chip b { color: var(--t1); font-weight: 600; font-family: var(--mono); font-size: 12px; }
+
+  section { margin-top: 52px; counter-increment: sec; }
+  h2 { font-size: 20px; margin: 0 0 4px; display: flex; align-items: center; gap: 10px; }
+  h2::before {
+    content: counter(sec, decimal-leading-zero);
+    font-family: var(--mono); font-size: 12px; color: var(--acc);
+    background: var(--acc-w); border-radius: 6px; padding: 2px 8px;
+  }
+  .lead { color: var(--t2); font-size: 14px; margin: 0 0 20px; }
+
+  .card { background: var(--pane); border: 1px solid var(--div); border-radius: 10px; padding: 20px 22px; }
+
+  /* hero 预览 */
+  .hero { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .hero .pane { border-radius: 10px; border: 1px solid var(--div); padding: 22px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+  .pane.light { background: #FFFFFF; }
+  .pane.dark { background: var(--dark); }
+  .pane img.big { width: 260px; height: 260px; }
+  .pane .cap { font-size: 12px; color: var(--t3); }
+  .pane.dark .cap { color: #6A6A66; }
+  .realsize { margin-top: 16px; display: flex; align-items: flex-end; gap: 28px; flex-wrap: wrap; }
+  .realsize .rs { display: flex; flex-direction: column; align-items: center; gap: 7px; font-size: 12px; color: var(--t2); }
+  .realsize img { image-rendering: auto; display: block; }
+
+  /* 管线 */
+  .pipe { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
+  .step { background: var(--pane); border: 1px solid var(--div); border-radius: 10px; padding: 14px 16px; }
+  .step .n { font-family: var(--mono); font-size: 11px; color: var(--acc-t); background: var(--acc-w); display: inline-block; border-radius: 5px; padding: 1px 7px; margin-bottom: 6px; }
+  .step h3 { font-size: 14px; margin: 0 0 4px; }
+  .step p { margin: 0; font-size: 12.5px; color: var(--t2); line-height: 1.65; }
+  .step code { font-family: var(--mono); font-size: 11.5px; color: var(--acc-t); }
+
+  /* 公式 */
+  .formulas { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; }
+  .fx { background: var(--pane); border: 1px solid var(--div); border-radius: 10px; padding: 14px 18px; }
+  .fx h3 { margin: 0 0 8px; font-size: 14px; }
+  .fx pre { margin: 0 0 8px; background: var(--bg); border: 1px solid var(--div); border-radius: 8px; padding: 10px 14px; overflow-x: auto; font-family: var(--mono); font-size: 12.5px; line-height: 1.7; color: var(--t1); }
+  .fx p { margin: 0; font-size: 12.5px; color: var(--t2); }
+
+  .chart { background: var(--pane); border: 1px solid var(--div); border-radius: 10px; padding: 16px 18px 10px; margin-top: 14px; }
+  .chart h3 { margin: 0 0 2px; font-size: 14px; }
+  .chart .cap { font-size: 12px; color: var(--t2); margin: 0 0 8px; }
+  .chart svg { width: 100%; height: auto; display: block; }
+
+  /* 关键帧 */
+  .keyframes { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
+  .kf { background: var(--pane); border: 1px solid var(--div); border-radius: 10px; padding: 14px; text-align: center; cursor: pointer; transition: border-color .15s; }
+  .kf:hover { border-color: var(--acc); }
+  .kf img { width: 220px; height: 220px; }
+  .kf .ph { font-family: var(--mono); font-size: 12px; color: var(--acc-t); background: var(--acc-w); border-radius: 5px; display: inline-block; padding: 1px 8px; margin-top: 6px; }
+  .kf h3 { font-size: 13.5px; margin: 8px 0 2px; }
+  .kf p { margin: 0; font-size: 12px; color: var(--t2); line-height: 1.6; }
+
+  /* 实时实验室 */
+  .lab { display: grid; grid-template-columns: 300px 1fr; gap: 20px; align-items: start; }
+  .lab .stage { background: var(--pane); border: 1px solid var(--div); border-radius: 10px; padding: 18px; display: flex; flex-direction: column; gap: 10px; align-items: center; }
+  .lab canvas { width: 260px; height: 260px; display: block; }
+  .lab .ctrls { background: var(--pane); border: 1px solid var(--div); border-radius: 10px; padding: 18px 22px; display: flex; flex-direction: column; gap: 16px; }
+  .lab .row label { display: flex; justify-content: space-between; font-size: 13.5px; color: var(--t1); margin-bottom: 4px; }
+  .lab .row label .val { font-family: var(--mono); color: var(--acc-t); }
+  .lab .row .note { font-size: 12px; color: var(--t2); margin-top: 2px; }
+  .lab .btns { display: flex; gap: 10px; }
+
+  /* 帧网格 */
+  .toolbar { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-bottom: 14px; }
+  button.act { background: var(--pane); border: 1px solid var(--div2); border-radius: 8px; padding: 6px 16px; font-size: 13px; color: var(--t1); cursor: pointer; }
+  button.act:hover { background: var(--hover); border-color: var(--acc); }
+  button.act.primary { background: var(--acc); border-color: var(--acc); color: #fff; }
+  button.act.primary:hover { background: #7A93A2; }
+  .scrub { flex: 1; min-width: 220px; display: flex; align-items: center; gap: 10px; font-size: 12px; color: var(--t2); font-family: var(--mono); }
+  input[type=range] { flex: 1; accent-color: var(--acc); }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; }
+  .cell { background: #fff; border: 1px solid var(--div); border-radius: 8px; padding: 5px 5px 3px; cursor: pointer; text-align: center; transition: border-color .1s; }
+  .cell:hover { border-color: var(--acc); }
+  .cell.cur { border-color: var(--acc); box-shadow: 0 0 0 2px var(--acc-w); }
+  .cell img { width: 100%; aspect-ratio: 1; display: block; border-radius: 4px; background: #fff; }
+  .cell .k { font-family: var(--mono); font-size: 10.5px; color: var(--t3); display: block; line-height: 1.6; }
+
+  /* 弹层 */
+  .modal { position: fixed; inset: 0; background: rgba(30, 30, 30, 0.55); backdrop-filter: blur(3px); display: none; align-items: center; justify-content: center; z-index: 50; }
+  .modal.open { display: flex; }
+  .mbox { background: var(--pane); border-radius: 14px; padding: 18px 20px 16px; max-width: 92vw; box-shadow: 0 12px 48px rgba(0,0,0,.25); }
+  .mbox .stage { display: flex; gap: 18px; align-items: center; justify-content: center; }
+  .mbox img.frame { width: min(480px, 70vw); height: min(480px, 70vw); background: #fff; border: 1px solid var(--div); border-radius: 8px; }
+  .mbox .meta { font-family: var(--mono); font-size: 12.5px; color: var(--t2); line-height: 2; min-width: 150px; }
+  .mbox .meta b { color: var(--t1); font-size: 20px; font-weight: 600; }
+  .mrow { display: flex; align-items: center; gap: 10px; margin-top: 12px; }
+  .mrow .hint { margin-left: auto; font-size: 11.5px; color: var(--t3); }
+  .close { position: absolute; top: 18px; right: 22px; font-size: 22px; color: #fff; background: none; border: none; cursor: pointer; line-height: 1; }
+
+  /* 统计 */
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; }
+
+  footer { margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--div); color: var(--t3); font-size: 12.5px; }
+  footer code { font-family: var(--mono); font-size: 11.5px; }
+
+  @media (max-width: 720px) {
+    .hero { grid-template-columns: 1fr; }
+    .mbox .stage { flex-direction: column; }
+    .mbox .meta { min-width: 0; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>AI 加载球 · 逐帧动画分析</h1>
+  <p class="sub">知识库前端「生成中」状态指示器 — 来源 <code>app/static/js/ai-orb.js</code>（canvas 2D，零依赖， Originkit OrbCoil 移植）。本页把一个完整循环周期拆成 188 帧，逐帧展示。</p>
+  <div class="chips">
+    <span class="chip">粒子数 <b>150</b></span>
+    <span class="chip">周期 <b>6 / 1.92 = 3.125 s</b></span>
+    <span class="chip">帧率 <b>60 fps</b>（187.5 帧/周期）</span>
+    <span class="chip">点色 <b>#A5B4BF</b> 雾蓝</span>
+    <span class="chip">视角 pitch <b>-45°</b></span>
+    <span class="chip">透视 <b>3.5</b></span>
+    <span class="chip">autoFit <b>1.7</b>（触顶）</span>
+  </div>
+</header>
+
+<!-- 01 预览 -->
+<section>
+  <h2>动画预览</h2>
+  <p class="lead">APNG，60 fps 无限循环，一周期 188 帧。左为亮色面板（白 #FFFFFF），右为暗色面板（#262626）— 动画本身画在透明 canvas 上，颜色恒定不随主题变化。</p>
+  <div class="hero">
+    <div class="pane light"><img class="big" src="orb-60fps.apng" alt="加载球动画·亮色背景"><div class="cap">亮色面板 · 实际使用场景（对话侧栏 / 消息行）</div></div>
+    <div class="pane dark"><img class="big" src="orb-60fps.apng" alt="加载球动画·暗色背景"><div class="cap">暗色面板 · 同一动画</div></div>
+  </div>
+  <div class="card realsize">
+    <div class="rs"><img src="orb-60fps.apng" style="width:14px;height:14px"><span>14px 侧栏/任务行</span></div>
+    <div class="rs"><img src="orb-60fps.apng" style="width:20px;height:20px"><span>20px 任务列表</span></div>
+    <div class="rs"><img src="orb-60fps.apng" style="width:24px;height:24px"><span>24px 行内（默认）</span></div>
+    <div class="rs"><img src="orb-60fps.apng" style="width:132px;height:132px"><span>132px 放大</span></div>
+    <div class="rs"><img src="orb-60fps.apng" style="width:260px;height:260px"><span>260px 放大分析</span></div>
+  </div>
+</section>
+
+<!-- 02 机制 -->
+<!-- 02 实时实验室 -->
+<section>
+  <h2>实时实验室</h2>
+  <p class="lead">下面这块不是录制的帧序列，而是把 <b>ai-orb.js 的算法原样搬进本页</b>实时计算渲染。拖动滑块，粒子大小与数量立刻生效 — 右侧数值即源码里的实际参数。</p>
+  <div class="lab">
+    <div class="stage">
+      <canvas id="labCanvas" width="520" height="520"></canvas>
+      <span style="font-size:12px;color:var(--t3)">520×520 设备像素 · 与导出帧同规格</span>
+    </div>
+    <div class="ctrls">
+      <div class="row">
+        <label>粒子大小（最终半径乘数）<span class="val" id="labSizeVal">1.00×</span></label>
+        <input type="range" id="labSize" min="0.1" max="3" step="0.05" value="1">
+        <p class="note">直接缩放最终点半径。源码分析发现：mount() 计算的 dotSize（1.31 预设）其实是<b>未接入渲染管线的预留参数</b> — 线上点大小实际只由深度公式 <code style="font-family:var(--mono);font-size:11px;color:var(--acc-t)">0.4+1.6·f·s</code> 决定。</p>
+      </div>
+      <div class="row">
+        <label>粒子数（frame() 的 n）<span class="val" id="labCountVal">150</span></label>
+        <input type="range" id="labCount" min="30" max="300" step="10" value="150">
+        <p class="note">线上固定 150；采样变密时螺旋线更连续，变疏时能看到离散的点串。</p>
+      </div>
+      <div class="btns">
+        <button class="act" id="labPause">⏸ 暂停</button>
+        <button class="act" id="labReset">重置为线上参数</button>
+      </div>
+      <p class="note" style="margin:0">其余参数（spread 0.4、pitch −45°、透视 3.5、周期 3.125 s、颜色 #A5B4BF）与 <code style="font-family:var(--mono);font-size:11.5px;color:var(--acc-t)">ai-orb.js</code> 完全一致。</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>它是怎么画出来的</h2>
+  <p class="lead">没有 GIF、没有视频、没有 WebGL — 每一帧都是 <b>150 次三角函数计算 + 150 个圆点</b>，五步管线：</p>
+  <div class="pipe">
+    <div class="step"><span class="n">STEP 1</span><h3>生成球面螺旋</h3><p>150 个粒子沿参数 <code>u ∈ [0,1)</code> 分布，极角 <code>θ=πu</code> 从北极走到南极，形成一条绕球面的螺旋线。</p></div>
+    <div class="step"><span class="n">STEP 2</span><h3>圈数呼吸</h3><p>螺旋圈数 <code>turns(t)</code> 在 <b>2 → 8</b> 之间以余弦节奏往复，线圈不断缠紧、松开。</p></div>
+    <div class="step"><span class="n">STEP 3</span><h3>整体旋转 + 滑动</h3><p>方位角随时间匀速旋转（一周期整一圈），同时所有粒子沿螺旋线滑动（<code>u+t</code>）。</p></div>
+    <div class="step"><span class="n">STEP 4</span><h3>透视投影</h3><p>固定视角（pitch −45°），透视除法 <code>3.5/(3.5−z)</code>：近的点更大更亮，远处的更小更淡。</p></div>
+    <div class="step"><span class="n">STEP 5</span><h3>画家算法绘制</h3><p>按深度 z 排序，远的先画、近的后画，逐点 <code>arc + fill</code> 叠加成半透明雾蓝粒子云。</p></div>
+  </div>
+</section>
+
+<!-- 03 数学 -->
+<section>
+  <h2>数学拆解</h2>
+  <p class="lead">逐帧几何 100% 由以下四个公式决定（t 为周期相位 0→1）：</p>
+  <div class="formulas">
+    <div class="fx">
+      <h3>① 球面螺旋 — 粒子坐标</h3>
+      <pre>u  = (i/150 + t) mod 1        // 沿线滑动
+θ  = π·u                       // 北极 → 南极
+az = 2π·(u·turns(t) + t)       // 缠绕 + 整体旋转
+p  = (cos(az)·sin θ,  cos θ,  sin(az)·sin θ)</pre>
+      <p>单条螺旋线采 150 个点；密度权重 <code>f = sin(πu)^0.45</code> 让赤道带更粗、两极更细。</p>
+    </div>
+    <div class="fx">
+      <h3>② 圈数呼吸 — 动画的“心跳”</h3>
+      <pre>turns(t) = 2 + 6·(0.5 − 0.5·cos(2πt))   ∈ [2, 8]</pre>
+      <p>t=0 时仅绕 2 圈（最疏），t=0.5 时 8 圈（最密）。这是动画“呼吸感”的唯一来源。</p>
+    </div>
+    <div class="fx">
+      <h3>③ 透视与深度衰减</h3>
+      <pre>s     = 3.5 / (3.5 − z)                    // 透视
+depth = clamp((z + 1.1) / 2.2, 0, 1)
+半径  = 0.4 + 1.6·depth·s·(0.6+0.9f)      // 近大远小
+α     = (0.07 + 0.93·depth^1.55)·f       // 近实远虚</pre>
+      <p>α 最深只有 0.07（几乎消失），最近接近 1 — 前后层次全靠这两个公式拉开。</p>
+    </div>
+    <div class="fx">
+      <h3>④ 视角与自动缩放</h3>
+      <pre>预旋转   spin(yaw=0.3, pitch=0.36)
+观察     yaw=5°, pitch=−45°   // 斜俯视
+autoFit = clamp(0.415·size/ext, 0.55, 1.7)
+         = 1.7（本例触顶）     // 20 探针求包围盒
+周期    = 6 / 1.92 = 3.125 s</pre>
+      <p>autoFit 防止 8 圈最密时粒子溢出画布；本例直接顶到上限 1.7。</p>
+    </div>
+  </div>
+  <div class="chart">
+    <h3>turns(t) 呼吸曲线（一周期）</h3>
+    <p class="cap">t=0.25 → 5 圈 · t=0.5 → 8 圈（峰值） · t=0.75 → 5 圈 · 回到 2 圈闭合循环。纵轴 2–8。</p>
+    <svg id="svgTurns" viewBox="0 0 980 180" role="img" aria-label="turns 呼吸曲线"></svg>
+  </div>
+</section>
+
+<!-- 04 关键帧 -->
+<section>
+  <h2>四个关键时刻</h2>
+  <p class="lead">点击任意一张可进入逐帧浏览器查看该帧。注意 t=0.5（最密）与 t=0（最疏）的形态差异。</p>
+  <div class="keyframes">
+    <div class="kf" data-k="0"><img src="frames/f000.png" alt="t=0"><span class="ph">t = 0.000 · 帧 0</span><h3>最疏 · 2 圈</h3><p>螺旋仅绕球两圈，粒子带宽松，轮廓接近经线圈。</p></div>
+    <div class="kf" data-k="47"><img src="frames/f047.png" alt="t=0.25"><span class="ph">t = 0.250 · 帧 47</span><h3>缠紧中 · 5 圈</h3><p>圈数过半，线圈开始向“茧”收拢，带间空隙变窄。</p></div>
+    <div class="kf" data-k="94"><img src="frames/f094.png" alt="t=0.5"><span class="ph">t = 0.500 · 帧 94</span><h3>最密 · 8 圈</h3><p>呼吸峰值：8 圈密绕，粒子带几乎铺满整个球面。</p></div>
+    <div class="kf" data-k="141"><img src="frames/f141.png" alt="t=0.75"><span class="ph">t = 0.750 · 帧 141</span><h3>松开中 · 5 圈</h3><p>对称地松缠，与 t=0.25 镜像，随后回到 2 圈闭合。</p></div>
+  </div>
+</section>
+
+<!-- 05 逐帧 -->
+<section>
+  <h2>全部 188 帧</h2>
+  <p class="lead">一个完整周期（3.125 s）的每一帧。点击任意帧放大，支持 <b>← →</b> 步进、<b>空格</b> 播放/暂停、<b>Esc</b> 关闭。</p>
+  <div class="toolbar">
+    <button class="act primary" id="playAll">▶ 从第 0 帧播放</button>
+    <div class="scrub"><span>0</span><input type="range" id="scrub" min="0" max="187" value="0"><span>187</span></div>
+  </div>
+  <div class="grid" id="grid"></div>
+</section>
+
+<!-- 06 统计 -->
+<section>
+  <h2>逐帧统计</h2>
+  <p class="lead">从每帧实际绘制指令中统计。可见点数几乎恒定 150（仅个别帧有 1 个点因半径/透明度阈值被剔除）；最大点半径随最近粒子的进出在 3.95–4.66 px 间波动。</p>
+  <div class="stats">
+    <div class="chart"><h3>可见点数 / 帧</h3><p class="cap">纵轴 148–151。阈值 <code>rr ≤ 0.05 或 α ≤ 0.004</code> 剔除。</p><svg id="svgCounts" viewBox="0 0 420 160"></svg></div>
+    <div class="chart"><h3>最大点半径 px / 帧</h3><p class="cap">纵轴 3.9–4.7（设备像素，480×480 画布）。</p><svg id="svgRmax" viewBox="0 0 420 160"></svg></div>
+    <div class="chart"><h3>平均透明度 / 帧</h3><p class="cap">纵轴 0.32–0.34，非常平稳 — 整体亮度恒定。</p><svg id="svgAmean" viewBox="0 0 420 160"></svg></div>
+  </div>
+</section>
+
+<!-- 07 复现 -->
+<section>
+  <h2>帧是怎么导出的</h2>
+  <p class="lead">没有重写算法：<code>_tools/capture-orb.js</code> 把 ai-orb.js 的几何函数逐行静态复制（标注源码行号），以 phase = k/188 步进计算每帧全部绘制点；<code>_tools/render-frames.py</code> 用 PIL + numpy 按 source-over 合成渲染成带 1px 抗锯齿边缘的透明 PNG；最后 ffmpeg 合成 60 fps APNG。</p>
+  <div class="card">
+    <pre style="margin:0;font-family:var(--mono);font-size:12.5px;line-height:1.9;overflow-x:auto">node    _tools/capture-orb.js          # frames.json：188 帧 × 每帧约 150 个点 (x, y, r, α)
+python  _tools/render-frames.py        # frames/f000.png … f187.png（480×480 RGBA）
+ffmpeg -framerate 60 -i frames/f%03d.png -f apng -plays 0 orb-60fps.apng</pre>
+  </div>
+</section>
+
+<footer>
+  个人知识库 · 加载球动画分析页 · 生成于 2026-09-02 · 帧数据由源码算法直接计算，与线上 <code>/js/ai-orb.js</code> 渲染一致（cssSize 240 / DPR 2）
+</footer>
+</div>
+
+<!-- 弹层播放器 -->
+<div class="modal" id="modal">
+  <button class="close" id="mClose" aria-label="关闭">✕</button>
+  <div class="mbox">
+    <div class="stage">
+      <img class="frame" id="mImg" src="frames/f000.png" alt="当前帧">
+      <div class="meta">
+        帧 <b id="mK">0</b> / 187<br>
+        相位 t = <span id="mT">0.000</span><br>
+        时间 <span id="mSec">0.000 s</span><br>
+        可见点数 <span id="mDots">150</span>
+      </div>
+    </div>
+    <div class="mrow">
+      <button class="act" id="mPrev">← 上一帧</button>
+      <button class="act primary" id="mPlay">▶ 播放</button>
+      <button class="act" id="mNext">下一帧 →</button>
+      <input type="range" id="mScrub" min="0" max="187" value="0" style="flex:1">
+      <span class="hint">← → 步进 · 空格 播放 · Esc 关闭</span>
+    </div>
+  </div>
+</div>
+
+<script src="data.js"></script>
+<script>
+/* 实时实验室 — 几何复制自 app/static/js/ai-orb.js（同 _tools/capture-orb.js），frame 的 n 参数化 */
+(function () {
+  "use strict";
+  var TAU = Math.PI * 2, BASE_SPREAD = 0.3, PERSPECTIVE = 3.5, MIN_RADIUS = 0.6, MAX_DOTS = 1024;
+  var RAD = Math.PI / 180, DOT = "#A5B4BF";
+
+  function spin(p, yaw, pitch) {
+    var ca = Math.cos(yaw), sa = Math.sin(yaw);
+    var rx = p[0] * ca - p[2] * sa, rz = p[0] * sa + p[2] * ca;
+    var co = Math.cos(pitch), so = Math.sin(pitch);
+    return [rx, p[1] * co - rz * so, p[1] * so + rz * co, p[3], p[4], p[5]];
+  }
+  function frame(t, P, out, n) {
+    var turns = 2 + 6 * (0.5 - 0.5 * Math.cos(TAU * t));
+    for (var i = 0; i < n; i += 1) {
+      var u = (i / n + t) % 1, th = Math.PI * u, sr = Math.sin(th);
+      var az = u * TAU * turns + TAU * t;
+      var f = Math.pow(Math.sin(Math.PI * u), 0.45);
+      out.push(spin(
+        [Math.cos(az) * sr, Math.cos(th), Math.sin(az) * sr, 0.6 + 0.9 * f, f, i % 15 === 0 ? P.acc : P.dot],
+        0.3, 0.36
+      ));
+    }
+  }
+  function project(pts, size, P, emit) {
+    var c = size / 2, R = size * BASE_SPREAD * P.sp, yaw = P.yw + TAU * P.sn * P.t;
+    var list = [];
+    for (var i = 0; i < pts.length; i++) {
+      var q = spin(pts[i], yaw, P.pc), z = q[2];
+      var s = PERSPECTIVE / (PERSPECTIVE - z);
+      var f = Math.max(0, Math.min(1, (z + 1.1) / 2.2));
+      list.push([
+        c + q[0] * R * s, c + q[1] * R * s,
+        0.4 + 1.6 * f * s * (q[3] === undefined ? 1 : q[3]),
+        (0.07 + 0.93 * Math.pow(f, 1.55)) * (q[4] === undefined ? 1 : q[4]),
+        q[5] || P.dot, z
+      ]);
+    }
+    list.sort(function (a, b) { return a[5] - b[5]; });
+    for (var k = 0; k < list.length; k++) emit(list[k][0], list[k][1], list[k][2], list[k][3], list[k][4]);
+  }
+  function autoFit(size, P) {
+    var half = size / 2, ext = 0;
+    function emit(x, y, r, a) { if (a <= 0.05 || r <= 0.15) return; ext = Math.max(ext, Math.abs(x - half) + 0.5 * r, Math.abs(y - half) + 0.5 * r); }
+    for (var k = 0; k < 20; k++) {
+      var probe = { sp: P.sp, ds: 1, yw: P.restTurn, sn: P.sn, pc: P.restTilt, t: k / 20, dot: "#fff", acc: "#fff" };
+      var out = []; frame(probe.t, probe, out, 150); project(out, size, probe, emit);
+    }
+    return ext > 1 ? Math.max(0.55, Math.min(1.7, 0.415 * size / ext)) : 1;
+  }
+
+  var canvas = document.getElementById("labCanvas");
+  if (!canvas || !canvas.getContext) return;
+  var ctx = canvas.getContext("2d");
+  var size = canvas.width;
+  var P = { sp: 0.4, yw: 5 * RAD, sn: 3, pc: -45 * RAD, restTurn: 5 * RAD, restTilt: -45 * RAD, t: 0, dot: DOT, acc: DOT };
+  var fit = autoFit(size, P);
+  var st = { mult: 1, n: 150, phase: 0, paused: false };
+
+  function draw() {
+    var out = []; frame(st.phase, P, out, st.n);
+    ctx.clearRect(0, 0, size, size);
+    var drawn = 0, half = size / 2;
+    project(out, size, P, function (x, y, r, a, col) {
+      if (drawn >= MAX_DOTS) return;
+      var rr = r * (0.55 + 0.45 * fit) * st.mult;
+      if (rr <= 0.05 || a <= 0.004) return;
+      var cx = half + (x - half) * fit, cy = half + (y - half) * fit;
+      var dr = rr, da = Math.min(1, a);
+      if (dr < MIN_RADIUS) { da *= (dr / MIN_RADIUS) * (dr / MIN_RADIUS); dr = MIN_RADIUS; }
+      ctx.globalAlpha = da; ctx.fillStyle = col;
+      ctx.beginPath(); ctx.arc(cx, cy, dr, 0, TAU); ctx.fill();
+      drawn += 1;
+    });
+    ctx.globalAlpha = 1;
+  }
+
+  var last = performance.now(), rafId = 0;
+  function loop(now) {
+    if (st.paused) return;
+    var dt = Math.min(0.05, (now - last) / 1000); last = now;
+    st.phase = (st.phase + dt * 1.92 / 6) % 1;
+    draw();
+    rafId = requestAnimationFrame(loop);
+  }
+  function resume() { last = performance.now(); if (!st.paused) rafId = requestAnimationFrame(loop); }
+
+  var sizeEl = document.getElementById("labSize"), countEl = document.getElementById("labCount");
+  var sizeVal = document.getElementById("labSizeVal"), countVal = document.getElementById("labCountVal");
+  var pauseBtn = document.getElementById("labPause"), resetBtn = document.getElementById("labReset");
+
+  sizeEl.addEventListener("input", function () {
+    st.mult = +sizeEl.value;
+    sizeVal.textContent = st.mult.toFixed(2) + "×";
+    if (st.paused) draw();
+  });
+  countEl.addEventListener("input", function () {
+    st.n = +countEl.value;
+    countVal.textContent = st.n;
+    if (st.paused) draw();
+  });
+  pauseBtn.addEventListener("click", function () {
+    st.paused = !st.paused;
+    pauseBtn.textContent = st.paused ? "▶ 播放" : "⏸ 暂停";
+    if (st.paused) cancelAnimationFrame(rafId); else resume();
+  });
+  resetBtn.addEventListener("click", function () {
+    st.mult = 1; st.n = 150;
+    sizeEl.value = 1; countEl.value = 150;
+    sizeVal.textContent = "1.00×"; countVal.textContent = "150";
+    if (st.paused) draw();
+  });
+  document.addEventListener("visibilitychange", function () {
+    if (document.hidden) cancelAnimationFrame(rafId);
+    else if (!st.paused) resume();
+  });
+
+  draw();
+  rafId = requestAnimationFrame(loop);
+})();
+</script>
+<script>
+(function () {
+  "use strict";
+  var N = DATA.N, STEP_MS = 1000 / 60;
+
+  /* ---------- SVG 折线 ---------- */
+  function line(svgId, values, lo, hi, color) {
+    var svg = document.getElementById(svgId);
+    if (!svg) return;
+    var W = svg.viewBox.baseVal.width, H = svg.viewBox.baseVal.height;
+    var pad = 8, plotH = H - 2 * pad;
+    var pts = values.map(function (v, i) {
+      var x = (i / (values.length - 1)) * W;
+      var y = pad + (1 - (v - lo) / (hi - lo)) * plotH;
+      return x.toFixed(1) + "," + y.toFixed(1);
+    }).join(" ");
+    var NS = "http://www.w3.org/2000/svg";
+    var grid = document.createElementNS(NS, "g");
+    [0.25, 0.5, 0.75].forEach(function (f) {
+      var l = document.createElementNS(NS, "line");
+      l.setAttribute("x1", 0); l.setAttribute("x2", W);
+      l.setAttribute("y1", pad + f * plotH); l.setAttribute("y2", pad + f * plotH);
+      l.setAttribute("stroke", "#E9E8E3"); l.setAttribute("stroke-width", 1);
+      grid.appendChild(l);
+    });
+    var p = document.createElementNS(NS, "polyline");
+    p.setAttribute("points", pts);
+    p.setAttribute("fill", "none"); p.setAttribute("stroke", color);
+    p.setAttribute("stroke-width", 2); p.setAttribute("stroke-linejoin", "round");
+    svg.appendChild(grid); svg.appendChild(p);
+    svg.setAttribute("preserveAspectRatio", "none");
+  }
+  line("svgTurns", DATA.turns, 2, 8, "#8B9FAD");
+  line("svgCounts", DATA.counts, 148, 151, "#4FB573");
+  line("svgRmax", DATA.rMax, 3.9, 4.7, "#B8860B");
+  line("svgAmean", DATA.aMean, 0.32, 0.34, "#8B9FAD");
+
+  /* ---------- 帧网格 ---------- */
+  var grid = document.getElementById("grid");
+  var cells = [];
+  for (var k = 0; k < N; k += 1) {
+    var cell = document.createElement("div");
+    cell.className = "cell";
+    cell.setAttribute("data-k", k);
+    var img = document.createElement("img");
+    img.loading = "lazy";
+    img.decoding = "async";
+    img.src = "frames/f" + String(k).padStart(3, "0") + ".png";
+    img.alt = "帧 " + k;
+    var label = document.createElement("span");
+    label.className = "k";
+    label.textContent = k;
+    cell.appendChild(img); cell.appendChild(label);
+    cell.addEventListener("click", function (e) { open(+e.currentTarget.getAttribute("data-k")); });
+    grid.appendChild(cell); cells.push(cell);
+  }
+
+  /* ---------- 弹层播放器 ---------- */
+  var modal = document.getElementById("modal");
+  var mImg = document.getElementById("mImg");
+  var mK = document.getElementById("mK"), mT = document.getElementById("mT");
+  var mSec = document.getElementById("mSec"), mDots = document.getElementById("mDots");
+  var mScrub = document.getElementById("mScrub"), mPlay = document.getElementById("mPlay");
+  var cur = 0, playing = false, acc = 0, lastTs = 0, rafId = 0;
+
+  function show(k) {
+    cur = (k + N) % N;
+    mImg.src = "frames/f" + String(cur).padStart(3, "0") + ".png";
+    mK.textContent = cur;
+    mT.textContent = (cur / N).toFixed(3);
+    mSec.textContent = (cur / N * DATA.period).toFixed(3) + " s";
+    mDots.textContent = DATA.counts[cur];
+    mScrub.value = cur;
+    cells.forEach(function (c, i) { c.classList.toggle("cur", i === cur); });
+    var active = cells[cur];
+    if (active && active.scrollIntoView) active.scrollIntoView({ block: "nearest" });
+  }
+  function frame(ts) {
+    if (!playing) return;
+    if (!lastTs) lastTs = ts;
+    acc += ts - lastTs; lastTs = ts;
+    while (acc >= STEP_MS) { acc -= STEP_MS; show(cur + 1); }
+    rafId = requestAnimationFrame(frame);
+  }
+  function play() {
+    playing = true; acc = 0; lastTs = 0;
+    mPlay.textContent = "⏸ 暂停";
+    rafId = requestAnimationFrame(frame);
+  }
+  function pause() {
+    playing = false; cancelAnimationFrame(rafId);
+    mPlay.textContent = "▶ 播放";
+  }
+  function open(k) {
+    modal.classList.add("open");
+    document.body.style.overflow = "hidden";
+    show(k);
+  }
+  function close() {
+    pause(); modal.classList.remove("open");
+    document.body.style.overflow = "";
+  }
+
+  mPlay.addEventListener("click", function () { playing ? pause() : play(); });
+  document.getElementById("mPrev").addEventListener("click", function () { pause(); show(cur - 1); });
+  document.getElementById("mNext").addEventListener("click", function () { pause(); show(cur + 1); });
+  document.getElementById("mClose").addEventListener("click", close);
+  modal.addEventListener("click", function (e) { if (e.target === modal) close(); });
+  mScrub.addEventListener("input", function () { pause(); show(+mScrub.value); });
+  document.addEventListener("keydown", function (e) {
+    if (!modal.classList.contains("open")) return;
+    if (e.key === "Escape") close();
+    else if (e.key === "ArrowLeft") { pause(); show(cur - 1); }
+    else if (e.key === "ArrowRight") { pause(); show(cur + 1); }
+    else if (e.key === " ") { e.preventDefault(); playing ? pause() : play(); }
+  });
+
+  /* 顶部工具 */
+  document.getElementById("playAll").addEventListener("click", function () { open(0); play(); });
+  document.getElementById("scrub").addEventListener("input", function (e) {
+    var k = +e.target.value;
+    cells.forEach(function (c, i) { c.classList.toggle("cur", i === k); });
+    if (modal.classList.contains("open")) show(k);
+  });
+  /* 关键帧点击 */
+  document.querySelectorAll(".kf").forEach(function (kf) {
+    kf.addEventListener("click", function () { open(+kf.getAttribute("data-k")); });
+  });
+})();
+</script>
+</body>
+</html>

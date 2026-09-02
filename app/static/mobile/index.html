@@ -1,0 +1,1517 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>知识库 · 手机版原型</title>
+<meta name="description" content="个人知识库手机版响应式布局原型（独立演示页，不调用后端）">
+<meta name="theme-color" content="#F6F4EF">
+<style>
+/* ============================================================
+   知识库 · 手机版原型 v1
+   自包含单文件：与桌面版共用设计 token（Notion 暖白 + 雾蓝），
+   不引用 /css/app.css、/js/app.js，不调用任何后端 API。
+   ============================================================ */
+
+/* ---------- tokens（与 app/static/css/app.css 保持一致） ---------- */
+:root {
+  --bg-frame: #F6F4EF;
+  --bg-pane: #FFFFFF;
+  --bg-hover: #F1F0EB;
+  --divider: #E9E8E3;
+  --divider-2: #D8D6D0;
+  --text-1: #37352F;
+  --text-2: #787774;
+  --text-3: #B4B2AD;
+  --accent: #8B9FAD;
+  --accent-text: #5F6C76;
+  --accent-weak: #EFF2F4;
+  --ok: #4FB573;
+  --err: #C0392B;
+  --warn: #B8860B;
+  --orb-line: #C9D3DA;
+  --shadow-pop: 0 4px 16px rgba(0, 0, 0, 0.08);
+  --stage-a: #EDEBE5;
+  --stage-b: #DFDBD2;
+}
+[data-theme="dark"] {
+  --bg-frame: #1E1E1E;
+  --bg-pane: #262626;
+  --bg-hover: #303030;
+  --divider: #3A3A38;
+  --divider-2: #4A4A47;
+  --text-1: #DCDDDE;
+  --text-2: #9B9B97;
+  --text-3: #6A6A66;
+  --accent: #A5B4BF;
+  --accent-text: #C3CDD5;
+  --accent-weak: #32373B;
+  --orb-line: #4E5A62;
+  --shadow-pop: 0 4px 16px rgba(0, 0, 0, 0.4);
+  --stage-a: #191919;
+  --stage-b: #101010;
+}
+
+/* ---------- 基础 ---------- */
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { height: 100%; }
+body {
+  margin: 0;
+  font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+  font-size: 14px;
+  color: var(--text-1);
+  background: linear-gradient(160deg, var(--stage-a), var(--stage-b));
+  overflow: hidden;
+}
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+input, textarea {
+  font: inherit; color: var(--text-1);
+  background: var(--bg-pane); border: 1px solid var(--divider-2); border-radius: 8px;
+  padding: 8px 12px; outline: none;
+}
+input:focus, textarea:focus { border-color: var(--accent); }
+.ic { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+.spacer { flex: 1; }
+::selection { background: var(--accent-weak); }
+
+/* ---------- 桌面预览舞台：手机框 + 说明 ---------- */
+.stage {
+  height: 100%; display: flex; align-items: center; justify-content: center;
+  gap: 48px; padding: 28px;
+}
+.stage-note { width: 250px; flex: none; }
+.stage-note h1 { font-size: 19px; margin: 0 0 10px; letter-spacing: 0.01em; }
+.stage-note p { font-size: 12.5px; color: var(--text-2); line-height: 1.75; margin: 0 0 14px; }
+.stage-note ul { margin: 0; padding: 0; list-style: none; font-size: 12.5px; color: var(--text-2); line-height: 2; }
+.stage-note li { display: flex; gap: 8px; align-items: baseline; }
+.stage-note li::before { content: ""; width: 5px; height: 5px; border-radius: 50%; background: var(--accent); flex: none; transform: translateY(-2px); }
+.stage-note .fine { font-size: 11.5px; color: var(--text-3); margin-top: 16px; }
+.stage-note .tag {
+  display: inline-block; font-size: 11px; color: var(--accent-text);
+  background: var(--accent-weak); border-radius: 99px; padding: 3px 10px; margin-bottom: 14px; font-weight: 600;
+}
+
+.phone {
+  width: 390px; height: min(844px, 94vh); flex: none;
+  border: 11px solid #16171A; border-radius: 54px;
+  box-shadow: 0 34px 90px rgba(0, 0, 0, 0.38), 0 4px 14px rgba(0, 0, 0, 0.22);
+  overflow: hidden; position: relative; background: var(--bg-pane);
+}
+
+/* ---------- 应用骨架（手机屏幕内） ---------- */
+.screen {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column;
+  background: var(--bg-pane); overflow: hidden;
+  padding-top: env(safe-area-inset-top);
+}
+.statusbar {
+  height: 44px; flex: none; position: relative; z-index: 60;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 30px 0 34px; background: var(--bg-pane);
+  font-size: 14px; font-weight: 600; color: var(--text-1); user-select: none;
+}
+.island {
+  position: absolute; top: 9px; left: 50%; transform: translateX(-50%);
+  width: 118px; height: 32px; border-radius: 20px; background: #16171A;
+}
+.sb-icons { display: flex; align-items: center; gap: 6px; }
+.sb-icons svg { display: block; }
+
+.viewport { flex: 1; position: relative; display: flex; flex-direction: column; min-height: 0; }
+.views { flex: 1; position: relative; min-height: 0; }
+.view { position: absolute; inset: 0; display: flex; flex-direction: column; min-height: 0; }
+.view[hidden] { display: none; }
+
+/* 顶栏 */
+.bar {
+  height: 48px; flex: none; display: flex; align-items: center; gap: 8px;
+  padding: 0 10px; background: var(--bg-pane); border-bottom: 1px solid var(--divider);
+  z-index: 5;
+}
+.bar-title { font-size: 16.5px; font-weight: 700; letter-spacing: 0.01em; }
+.bar-title.ell { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bar-btn {
+  width: 34px; height: 34px; border-radius: 9px; flex: none;
+  display: flex; align-items: center; justify-content: center; color: var(--text-2);
+}
+.bar-btn:active { background: var(--bg-hover); }
+.bar-txt {
+  flex: none; display: inline-flex; align-items: center; gap: 6px;
+  font-size: 13px; color: var(--text-1);
+  border: 1px solid var(--divider-2); border-radius: 8px; padding: 6px 11px;
+}
+.bar-txt:active { background: var(--bg-hover); }
+.bar-txt .ic { width: 14px; height: 14px; }
+
+.scroll { flex: 1; overflow-y: auto; min-height: 0; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+
+/* ---------- 问答 ---------- */
+.doc-col { max-width: 660px; margin: 0 auto; padding: 20px 18px 28px; }
+.empty-wrap { padding-top: 9vh; text-align: center; }
+.empty-logo {
+  width: 54px; height: 54px; margin: 0 auto 16px; border-radius: 16px;
+  background: var(--accent-weak); color: var(--accent-text);
+  display: flex; align-items: center; justify-content: center;
+}
+.empty-logo .ic { width: 26px; height: 26px; }
+.empty-hi { font-size: 20px; font-weight: 700; margin: 0 0 8px; }
+.empty-sub { font-size: 13px; color: var(--text-3); margin: 0 0 26px; }
+.suggs { display: flex; flex-direction: column; gap: 8px; max-width: 320px; margin: 0 auto; }
+.sugg {
+  border: 1px solid var(--divider); background: var(--bg-pane); border-radius: 12px;
+  padding: 11px 14px; font-size: 13.5px; color: var(--text-2); text-align: left;
+}
+.sugg:active { background: var(--bg-hover); }
+
+.q-block { font-size: 16.5px; font-weight: 700; line-height: 1.55; margin: 18px 0 10px; word-break: break-word; }
+.q-block.first { margin-top: 4px; }
+.a-block {
+  font-size: 15px; line-height: 1.8; border-left: 3px solid var(--orb-line);
+  padding-left: 14px; margin: 0 0 6px; word-break: break-word;
+}
+.a-block .orb { vertical-align: -2px; margin-right: 8px; }
+.a-block .stream-tmp { color: var(--text-2); }
+.a-block b { font-weight: 700; }
+.a-srcs { margin: 10px 0 26px 17px; display: flex; flex-direction: column; gap: 5px; }
+.a-src {
+  display: flex; gap: 7px; font-size: 12px; color: var(--text-2); cursor: pointer;
+  max-width: 100%;
+}
+.a-src:active { color: var(--accent-text); }
+.a-src b { color: var(--accent-text); flex: none; }
+.a-src span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cite {
+  color: var(--accent-text); font-size: 11px; vertical-align: super; font-weight: 700;
+  padding: 2px 3px; cursor: pointer; user-select: none;
+}
+.cite:active { background: var(--accent); color: #fff; border-radius: 3px; }
+
+.orb {
+  display: inline-block; width: 14px; height: 14px; border-radius: 50%;
+  border: 2px solid var(--accent); border-top-color: transparent;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* 输入条（替代桌面"两次回车发送"） */
+.composer {
+  flex: none; position: relative;
+  display: flex; align-items: flex-end; gap: 9px;
+  padding: 10px 12px 12px; background: var(--bg-pane); border-top: 1px solid var(--divider);
+}
+.composer textarea {
+  flex: 1; resize: none; border-radius: 20px; padding: 9px 15px;
+  font-size: 16px; line-height: 1.45; max-height: 116px; background: var(--bg-frame);
+}
+.send-btn {
+  width: 40px; height: 40px; border-radius: 50%; flex: none;
+  background: var(--accent); color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  transition: background 0.15s ease, transform 0.1s ease;
+}
+.send-btn:active { transform: scale(0.92); }
+.send-btn.stop { background: var(--text-1); }
+.gen-pill {
+  position: absolute; top: -46px; right: 14px;
+  display: inline-flex; align-items: center; gap: 8px;
+  border: 1px solid var(--divider-2); background: var(--bg-pane); border-radius: 99px;
+  padding: 7px 14px; font-size: 12.5px; color: var(--text-2); box-shadow: var(--shadow-pop);
+}
+.gen-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); animation: pulse 1s ease infinite; }
+@keyframes pulse { 50% { opacity: 0.35; } }
+
+/* ---------- 文档：分组列表 ---------- */
+.grp-h {
+  display: flex; align-items: center; gap: 7px;
+  padding: 18px 18px 9px; font-size: 12px; font-weight: 700; color: var(--text-2);
+  letter-spacing: 0.06em;
+}
+.grp-h .n { margin-left: auto; font-size: 11px; font-weight: 400; color: var(--text-3); }
+.doc-row {
+  display: flex; align-items: center; gap: 12px; padding: 11px 16px;
+  background: var(--bg-pane); border-bottom: 1px solid var(--divider); cursor: pointer;
+}
+.doc-row:active { background: var(--bg-hover); }
+.doc-ic {
+  width: 38px; height: 38px; border-radius: 10px; flex: none;
+  background: var(--accent-weak); color: var(--accent-text);
+  display: flex; align-items: center; justify-content: center;
+}
+.doc-ic.vid { background: #F5EDE8; color: #C0724A; }
+[data-theme="dark"] .doc-ic.vid { background: #3A2F29; }
+.doc-mid { flex: 1; min-width: 0; }
+.doc-t { font-size: 14.5px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.doc-meta { font-size: 12px; color: var(--text-3); margin-top: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.doc-meta .st-busy { color: var(--warn); }
+.doc-row .chev { color: var(--text-3); width: 15px; height: 15px; }
+.gen-row { display: flex; align-items: center; gap: 12px; padding: 11px 16px; border-bottom: 1px solid var(--divider); }
+.gen-row .t { flex: 1; font-size: 13.5px; color: var(--text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gen-row .tm { font-size: 11.5px; color: var(--warn); flex: none; }
+.docs-empty { padding: 48px 24px; text-align: center; font-size: 13px; color: var(--text-3); }
+
+/* 文档详情页（推入） */
+.detail {
+  position: absolute; inset: 0; z-index: 30;
+  display: flex; flex-direction: column; min-height: 0;
+  background: var(--bg-pane);
+  transform: translateX(100%); visibility: hidden;
+  transition: transform 0.26s cubic-bezier(0.3, 0.9, 0.3, 1), visibility 0.26s;
+}
+.detail.on { transform: none; visibility: visible; }
+.dp-body { max-width: 660px; margin: 0 auto; width: 100%; padding: 20px 18px 40px; }
+.dp-head { display: flex; align-items: center; gap: 10px; }
+.dp-head .doc-ic { width: 42px; height: 42px; }
+.dp-t { font-size: 18px; font-weight: 700; line-height: 1.35; word-break: break-all; }
+.dp-tags { display: flex; gap: 6px; margin-top: 6px; align-items: center; }
+.dp-type { font-size: 11px; color: var(--text-2); background: var(--bg-hover); border-radius: 5px; padding: 2px 7px; }
+.dp-st { font-size: 12px; color: var(--text-2); }
+.dp-meta {
+  font-size: 12px; color: var(--text-2); margin: 14px 0 16px; padding-bottom: 14px;
+  border-bottom: 1px solid var(--divider); word-break: break-all; line-height: 1.7;
+}
+.dp-tabs { display: inline-flex; background: var(--bg-hover); border-radius: 9px; padding: 3px; margin-bottom: 16px; }
+.dp-tab { border-radius: 7px; font-size: 13px; padding: 6px 18px; color: var(--text-2); font-weight: 500; }
+.dp-tab.on { background: var(--bg-pane); color: var(--text-1); font-weight: 700; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1); }
+.dp-sec { font-size: 11px; color: var(--text-3); letter-spacing: 0.08em; margin: 0 0 10px; }
+.frag {
+  border-left: 2px solid var(--divider); padding: 8px 12px; font-size: 13.5px;
+  color: var(--text-2); line-height: 1.7; margin-bottom: 9px; word-break: break-word;
+}
+.frag .fh { color: var(--text-1); font-weight: 700; font-size: 12px; display: block; margin-bottom: 3px; }
+.dp-note { font-size: 11.5px; color: var(--text-3); margin-top: 12px; }
+
+/* PDF 分页占位（示意） */
+.pg-stack { display: flex; flex-direction: column; gap: 14px; }
+.pg { border: 1px solid var(--divider); border-radius: 10px; padding: 22px 18px; background: var(--bg-frame); }
+.pg-no { font-size: 11px; color: var(--text-3); text-align: center; margin-top: 12px; }
+.skel { display: flex; flex-direction: column; gap: 9px; }
+.skel i { display: block; height: 9px; border-radius: 5px; background: var(--divider); }
+.skel i.w60 { width: 60%; } .skel i.w70 { width: 70%; } .skel i.w85 { width: 85%; }
+.skel i.w95 { width: 95%; } .skel i.w35 { width: 35%; }
+
+/* HTML 原文示意（浏览器卡片） */
+.web-frame { border: 1px solid var(--divider); border-radius: 10px; overflow: hidden; }
+.web-bar { display: flex; align-items: center; gap: 6px; padding: 8px 12px; background: var(--bg-hover); border-bottom: 1px solid var(--divider); }
+.web-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--divider-2); }
+.web-url {
+  flex: 1; font-size: 11.5px; color: var(--text-3); font-family: ui-monospace, monospace;
+  background: var(--bg-pane); border-radius: 6px; padding: 4px 10px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.web-body { padding: 16px; display: flex; flex-direction: column; gap: 11px; }
+
+/* 视频原文示意 */
+.player {
+  aspect-ratio: 16 / 9; border-radius: 10px; background: #14161A;
+  display: flex; align-items: center; justify-content: center; margin-bottom: 14px;
+}
+.player .ic { width: 34px; height: 34px; color: rgba(255, 255, 255, 0.9); fill: rgba(255,255,255,.9); stroke: none; }
+.md-p { margin: 0 0 10px; font-size: 14.5px; line-height: 1.85; color: var(--text-1); }
+
+/* ---------- 小测验（同步主应用 v0.18） ---------- */
+.qz-wrap { max-width: 640px; margin: 0 auto; padding: 14px 16px 30px; }
+.qz-new { border: 1px solid var(--divider); border-radius: 14px; padding: 16px; margin-bottom: 4px; background: var(--bg-pane); }
+.qz-new input { width: 100%; font-size: 14px; margin-top: 10px; }
+.qz-count { display: flex; border: 1px solid var(--divider-2); border-radius: 9px; overflow: hidden; margin-top: 10px; }
+.qz-count button { flex: 1; padding: 8px 0; font-size: 12.5px; color: var(--text-2); border-right: 1px solid var(--divider-2); }
+.qz-count button:last-child { border-right: 0; }
+.qz-count button.on { background: var(--accent-weak); color: var(--accent-text); font-weight: 700; }
+.qz-hint { font-size: 11.5px; color: var(--text-3); margin-top: 10px; line-height: 1.6; }
+.qz-row { display: flex; align-items: center; gap: 12px; padding: 11px 16px; border-bottom: 1px solid var(--divider); cursor: pointer; }
+.qz-row:active { background: var(--bg-hover); }
+.qz-del { width: 30px; height: 30px; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: var(--text-3); flex: none; }
+.qz-del:active { color: var(--err); }
+.qz-play { max-width: 640px; margin: 0 auto; padding: 18px 18px 44px; }
+.qz-top { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-3); margin-bottom: 7px; }
+.qz-src-tag { margin-left: auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 46%; }
+.qz-bar { height: 4px; border-radius: 99px; background: var(--divider); overflow: hidden; margin-bottom: 16px; }
+.qz-bar span { display: block; height: 100%; background: var(--accent); border-radius: 99px; transition: width 0.25s ease; }
+.qz-card { border: 1px solid var(--divider); border-radius: 14px; padding: 18px 18px 16px; background: var(--bg-pane); }
+.qz-type { font-size: 11px; font-weight: 700; color: var(--accent-text); letter-spacing: 0.05em; margin-bottom: 10px; }
+.qz-ref { font-weight: 400; color: var(--text-3); }
+.qz-stem { font-size: 16px; line-height: 1.75; color: var(--text-1); margin-bottom: 16px; }
+.qz-opt { display: flex; align-items: center; gap: 11px; width: 100%; text-align: left; border: 1px solid var(--divider-2); border-radius: 11px; padding: 12px 14px; font-size: 15px; color: var(--text-1); margin-bottom: 9px; }
+.qz-opt:active:not(:disabled) { border-color: var(--accent); background: var(--accent-weak); }
+.qz-opt:disabled { opacity: 0.75; cursor: default; }
+.qz-key { flex: none; width: 24px; height: 24px; border-radius: 6px; border: 1px solid var(--divider); font-size: 12.5px; display: flex; align-items: center; justify-content: center; color: var(--text-3); }
+.qz-txt { min-width: 0; line-height: 1.5; }
+.qz-opt.ok { border-color: #3AA675; background: rgba(58, 166, 117, 0.12); opacity: 1; }
+.qz-opt.ok .qz-key { border-color: #3AA675; color: #3AA675; }
+.qz-opt.bad { border-color: #D0655C; background: rgba(208, 101, 92, 0.1); opacity: 1; }
+.qz-opt.bad .qz-key { border-color: #D0655C; color: #D0655C; }
+.qz-input { width: 100%; border: 1px solid var(--divider-2); border-radius: 10px; padding: 11px 13px; font-size: 15px; background: var(--bg-frame); resize: vertical; }
+.qz-actions { margin-top: 12px; }
+.qz-next { width: 100%; padding: 12px; }
+.qz-feedback { margin-top: 14px; }
+.qz-verdict { font-size: 15px; font-weight: 700; margin-bottom: 8px; }
+.qz-verdict.ok { color: #3AA675; }
+.qz-verdict.mid { color: #C99A3C; }
+.qz-verdict.bad { color: #D0655C; }
+.qz-exp { font-size: 13px; line-height: 1.7; color: var(--text-2); background: var(--bg-hover); border-left: 2px solid var(--accent); border-radius: 6px; padding: 9px 11px; margin-bottom: 7px; }
+.qz-done { text-align: center; padding: 36px 0 24px; }
+.qzd-score { font-size: 44px; font-weight: 800; color: var(--accent-text); }
+.qzd-sub { font-size: 13px; color: var(--text-3); margin: 8px 0 16px; }
+.qz-done-btns { display: flex; gap: 10px; justify-content: center; }
+.qzw { padding: 12px 2px; border-bottom: 1px solid var(--divider); }
+.qzw-q { font-size: 14px; color: var(--text-1); line-height: 1.65; margin-bottom: 5px; }
+.qzw-line { font-size: 12.5px; color: var(--text-2); margin-bottom: 4px; }
+@media (max-width: 560px) { .qz-new input, .qz-input { font-size: 16px; } }
+
+/* ---------- 设置 ---------- */
+.cats {
+  position: sticky; top: 0; z-index: 6; flex: none;
+  display: flex; gap: 7px; overflow-x: auto; padding: 10px 16px;
+  background: var(--bg-pane); border-bottom: 1px solid var(--divider);
+  scrollbar-width: none;
+}
+.cats::-webkit-scrollbar { display: none; }
+.chip {
+  flex: none; border: 1px solid var(--divider-2); border-radius: 99px;
+  padding: 6px 13px; font-size: 12.5px; color: var(--text-2); white-space: nowrap;
+}
+.chip.on { background: var(--accent-weak); border-color: var(--accent-text); color: var(--accent-text); font-weight: 700; }
+.set-wrap { max-width: 640px; margin: 0 auto; padding: 16px 16px 30px; }
+.set-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; padding: 4px 2px 0; }
+.set-head h1 { font-size: 22px; margin: 0; }
+.seg { display: inline-flex; border: 1px solid var(--divider-2); border-radius: 9px; overflow: hidden; }
+.seg button { padding: 6px 13px; font-size: 12px; color: var(--text-2); background: var(--bg-pane); }
+.seg button.on { background: var(--accent-weak); color: var(--accent-text); font-weight: 700; }
+
+.stat-card, .set-card {
+  border: 1px solid var(--divider); border-radius: 14px; padding: 16px;
+  margin-bottom: 12px; background: var(--bg-pane); scroll-margin-top: 8px;
+}
+.st-row { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; }
+.st-item { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-2); }
+.st-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text-3); display: inline-block; }
+.st-dot.on { background: var(--ok); }
+.st-meta { font-size: 11.5px; color: var(--text-3); margin-top: 9px; }
+
+.sc-t { font-size: 15px; font-weight: 700; }
+.sc-sub { font-size: 11.5px; color: var(--text-3); font-weight: 400; margin-left: 8px; }
+.sc-d { font-size: 12px; color: var(--text-2); margin: 5px 0 12px; }
+.set-card input, .set-card textarea { width: 100%; font-size: 13.5px; background: var(--bg-frame); }
+.acc { border-top: 1px solid var(--divider); margin-top: 12px; padding-top: 4px; }
+.acc summary {
+  cursor: pointer; font-size: 13.5px; font-weight: 700; padding: 10px 0;
+  list-style: none; display: flex; align-items: center; gap: 8px;
+}
+.acc summary::before { content: "›"; color: var(--text-3); transition: transform 0.15s; display: inline-block; }
+.acc[open] summary::before { transform: rotate(90deg); }
+.acc summary::-webkit-details-marker { display: none; }
+.fld { margin: 9px 0; }
+.fld label { display: block; font-size: 12px; color: var(--text-2); margin-bottom: 6px; }
+.fld label small { color: var(--text-3); margin-left: 6px; }
+.wd-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.wd-chip {
+  display: inline-flex; align-items: center; gap: 7px; border: 1px solid var(--divider-2);
+  border-radius: 8px; padding: 5px 10px; font-size: 12px;
+  font-family: ui-monospace, monospace; background: var(--bg-hover); word-break: break-all;
+}
+.wd-chip button { color: var(--text-3); font-size: 12px; }
+.btn {
+  border: 1px solid var(--divider-2); border-radius: 9px; padding: 9px 16px;
+  font-size: 13.5px; color: var(--text-1); background: var(--bg-pane);
+}
+.btn:active { background: var(--bg-hover); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 700; }
+.btn.ghost { color: var(--text-2); }
+.about-grid { display: grid; grid-template-columns: 92px 1fr; gap: 8px 14px; font-size: 12.5px; margin-top: 10px; }
+.about-grid span:nth-child(odd) { color: var(--text-2); }
+
+.savebar {
+  flex: none; display: flex; align-items: center; gap: 10px;
+  padding: 10px 16px calc(10px + env(safe-area-inset-bottom) / 2);
+  background: var(--bg-pane); border-top: 1px solid var(--divider);
+}
+#dirtyHint { font-size: 11.5px; color: var(--warn); visibility: hidden; margin-right: auto; }
+.savebar.dirty #dirtyHint { visibility: visible; }
+
+/* ---------- 底部标签栏 ---------- */
+.tabbar {
+  flex: none; display: flex;
+  height: calc(54px + env(safe-area-inset-bottom));
+  padding-bottom: env(safe-area-inset-bottom);
+  background: var(--bg-pane); border-top: 1px solid var(--divider); z-index: 10;
+}
+.tab {
+  flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 3px; font-size: 10.5px; color: var(--text-2); -webkit-tap-highlight-color: transparent;
+}
+.tab .ic { width: 21px; height: 21px; }
+.tab.on { color: var(--accent-text); font-weight: 700; }
+
+/* ---------- 抽屉（最近对话） ---------- */
+.scrim {
+  position: absolute; inset: 0; z-index: 39; background: rgba(30, 30, 30, 0.32);
+  opacity: 0; pointer-events: none; transition: opacity 0.2s ease;
+}
+.scrim.on { opacity: 1; pointer-events: auto; }
+.drawer {
+  position: absolute; top: 0; bottom: 0; left: 0; z-index: 40;
+  width: min(80vw, 300px);
+  background: var(--bg-pane); box-shadow: var(--shadow-pop);
+  transform: translateX(-102%); transition: transform 0.22s ease;
+  display: flex; flex-direction: column; padding: 14px 10px;
+}
+body.drawer-open .drawer { transform: none; }
+.dr-search {
+  border: 1px solid var(--divider-2); border-radius: 9px; height: 36px; flex: none;
+  display: flex; align-items: center; padding: 0 10px; gap: 7px;
+  color: var(--text-3); background: var(--bg-pane);
+}
+.dr-search:focus-within { border-color: var(--accent); }
+.dr-search input { border: 0; padding: 0; flex: 1; min-width: 0; background: none; font-size: 13.5px; }
+.dr-search .ic { width: 15px; height: 15px; }
+.dr-new {
+  margin-top: 10px; width: 100%; height: 36px; border: 1px solid var(--divider-2);
+  border-radius: 9px; display: flex; align-items: center; justify-content: center; gap: 6px;
+  font-size: 13.5px; color: var(--accent-text); flex: none;
+}
+.dr-new:active { background: var(--accent-weak); border-color: var(--accent); }
+.dr-cap { font-size: 11px; color: var(--text-3); margin: 16px 8px 6px; letter-spacing: 0.08em; }
+.dr-list { flex: 1; overflow-y: auto; min-height: 0; }
+.dr-conv {
+  display: flex; align-items: center; gap: 8px; height: 38px; padding: 0 9px;
+  border-radius: 8px; font-size: 13.5px; cursor: pointer; margin-bottom: 1px;
+}
+.dr-conv:active { background: var(--bg-hover); }
+.dr-conv.on { background: var(--accent-weak); color: var(--accent-text); font-weight: 700; }
+.dr-conv .t { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dr-conv .tm { font-size: 11px; color: var(--text-3); flex: none; }
+
+/* ---------- 底部弹层（引用 / 操作 / 链接入库 / 扫码） ---------- */
+.sheet-wrap {
+  position: absolute; inset: 0; z-index: 50;
+  display: flex; align-items: flex-end;
+  background: rgba(30, 30, 30, 0.35);
+  opacity: 0; pointer-events: none; transition: opacity 0.2s ease;
+}
+.sheet-wrap.on { opacity: 1; pointer-events: auto; }
+.sheet {
+  width: 100%; max-height: 74%; overflow-y: auto; overscroll-behavior: contain;
+  background: var(--bg-pane); border-radius: 18px 18px 0 0;
+  padding: 6px 18px calc(20px + env(safe-area-inset-bottom));
+  transform: translateY(100%); transition: transform 0.28s cubic-bezier(0.2, 0.9, 0.25, 1);
+}
+.sheet-wrap.on .sheet { transform: none; }
+.sh-grab { width: 38px; height: 4.5px; border-radius: 3px; background: var(--divider-2); margin: 8px auto 6px; }
+.sh-title { font-size: 15.5px; font-weight: 700; margin: 8px 2px 4px; }
+.sh-sub { font-size: 12px; color: var(--text-3); margin: 0 2px 12px; }
+.cite-card { border: 1px solid var(--divider); border-radius: 12px; padding: 11px 13px; margin: 8px 0; cursor: pointer; }
+.cite-card:active { background: var(--bg-hover); }
+.cite-card .no { font-size: 11px; color: var(--accent-text); font-weight: 700; }
+.cite-card .t { font-size: 13.5px; font-weight: 600; margin: 3px 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cite-card .s { font-size: 12px; color: var(--text-2); line-height: 1.65; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.cite-card .loc { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--text-3); margin-top: 6px; }
+.cite-card .loc .ic { width: 12px; height: 12px; }
+.act-row {
+  display: flex; align-items: center; gap: 12px; padding: 14px 2px;
+  font-size: 15px; border-bottom: 1px solid var(--divider); cursor: pointer;
+}
+.act-row:last-child { border-bottom: 0; }
+.act-row:active { background: var(--bg-hover); }
+.act-row .ic { color: var(--text-2); }
+.act-row.danger { color: var(--err); }
+.act-row.danger .ic { color: var(--err); }
+.act-sub { font-size: 11.5px; color: var(--text-3); margin-left: auto; }
+.sh-input-row { display: flex; gap: 8px; margin-top: 12px; }
+.sh-input-row input { flex: 1; min-width: 0; font-size: 14px; }
+.qr-area { display: flex; flex-direction: column; align-items: center; gap: 12px; margin: 14px 0 6px; }
+.qr { width: 172px; height: 172px; background: #fff; border: 1px solid var(--divider); border-radius: 12px; padding: 12px; }
+.qr .grid { width: 100%; height: 100%; display: grid; }
+.qr .grid i { background: transparent; }
+.qr .grid i.f { background: #16171A; }
+.qr-status { font-size: 13px; color: var(--text-2); }
+
+/* ---------- Toast ---------- */
+.toasts {
+  position: absolute; top: 14px; left: 50%; transform: translateX(-50%); z-index: 90;
+  display: flex; flex-direction: column; gap: 8px; align-items: center; width: max-content; max-width: 86%;
+}
+.toast {
+  background: var(--text-1); color: var(--bg-pane); font-size: 12.5px;
+  border-radius: 10px; padding: 9px 16px; box-shadow: var(--shadow-pop);
+  animation: tin 0.18s ease; text-align: center;
+}
+.toast.err { background: var(--err); color: #fff; }
+.toast.bye { opacity: 0; transition: opacity 0.3s; }
+@keyframes tin { from { opacity: 0; transform: translateY(-8px); } }
+
+/* ---------- 全屏模式（真机 / 窄窗口） ---------- */
+@media (max-width: 560px) {
+  body { background: var(--bg-pane); }
+  .stage { padding: 0; height: 100dvh; }
+  .stage-note { display: none; }
+  .phone { width: 100%; height: 100%; border: 0; border-radius: 0; box-shadow: none; }
+  .screen { position: fixed; inset: 0; }
+  .statusbar { display: none; }
+  .set-card input, .set-card textarea, .sh-input-row input, .fld input { font-size: 16px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; }
+}
+</style>
+</head>
+
+<body data-view="ask">
+<div class="stage">
+
+  <!-- 桌面侧说明（窄屏自动隐藏） -->
+  <aside class="stage-note">
+    <span class="tag">手机版原型 · 390 × 844</span>
+    <h1>知识库 · 手机版</h1>
+    <p>与桌面版同一套设计 token（Notion 暖白 + 雾蓝），三个视图针对手机重排。试试：</p>
+    <ul>
+      <li>底部标签切换 问答 / 文档 / 测验 / 设置</li>
+      <li>问答：发送问题，看模拟流式回答；点 <b>[1]</b> 引用弹层</li>
+      <li>左上角菜单开抽屉，切换最近对话</li>
+      <li>文档：点列表进详情，「···」里做操作</li>
+      <li>测验：输入主题出题，答题体验判分、成绩与错题回顾</li>
+    </ul>
+    <p class="fine">纯原型 · 模拟数据，不调用后端接口 · 把窗口缩窄到手机宽度自动全屏</p>
+  </aside>
+
+  <!-- 手机框 -->
+  <div class="phone">
+    <div class="screen" id="screen">
+
+      <!-- 模拟状态栏（全屏模式下隐藏） -->
+      <div class="statusbar">
+        <span>9:41</span>
+        <span class="island"></span>
+        <span class="sb-icons">
+          <svg width="17" height="11" viewBox="0 0 18 12" fill="currentColor"><rect y="7" width="3" height="5" rx="1"/><rect x="5" y="5" width="3" height="7" rx="1"/><rect x="10" y="2.5" width="3" height="9.5" rx="1"/><rect x="15" width="3" height="12" rx="1"/></svg>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 15.11a6 6 0 0 1 6.95 0"/><circle cx="12" cy="19" r="1.4" fill="currentColor" stroke="none"/></svg>
+          <svg width="23" height="12" viewBox="0 0 24 13" fill="none"><rect x="0.7" y="0.7" width="19" height="11.6" rx="3.5" stroke="currentColor" stroke-opacity="0.4" stroke-width="1.2"/><rect x="2.6" y="2.6" width="13" height="7.8" rx="2" fill="currentColor"/><path d="M22 4.5v4" stroke="currentColor" stroke-opacity="0.4" stroke-width="1.6" stroke-linecap="round"/></svg>
+        </span>
+      </div>
+
+      <div class="viewport">
+        <div class="views">
+
+          <!-- ===== 问答 ===== -->
+          <section class="view" data-view="ask">
+            <header class="bar">
+              <button class="bar-btn" id="btnDrawer" aria-label="最近对话"><svg class="ic"><use href="#mi-menu"/></svg></button>
+              <span class="bar-title ell" id="askTitle">问答</span>
+              <button class="bar-btn" id="btnTheme" aria-label="切换主题">
+                <svg class="ic i-sun"><use href="#mi-sun"/></svg>
+                <svg class="ic i-moon" hidden><use href="#mi-moon"/></svg>
+              </button>
+            </header>
+            <div class="scroll" id="askScroll">
+              <div class="doc-col" id="docCol"></div>
+            </div>
+            <div class="composer">
+              <div class="gen-pill" id="genPill" hidden><span class="gen-dot"></span>生成中 · 点击停止</div>
+              <textarea id="askIn" rows="1" placeholder="问点什么…"></textarea>
+              <button class="send-btn" id="btnSend" aria-label="发送"><svg class="ic" id="sendIc"><use href="#mi-send"/></svg></button>
+            </div>
+          </section>
+
+          <!-- ===== 文档 ===== -->
+          <section class="view" data-view="docs" hidden>
+            <header class="bar">
+              <span class="bar-title">文档</span>
+              <span class="spacer"></span>
+              <button class="bar-txt" id="btnLink"><svg class="ic"><use href="#mi-link"/></svg>链接</button>
+              <button class="bar-btn" id="btnUpload" aria-label="上传"><svg class="ic"><use href="#mi-upload"/></svg></button>
+            </header>
+            <div class="scroll" id="docsScroll"></div>
+
+            <!-- 详情页（推入式） -->
+            <div class="detail" id="docDetail">
+              <header class="bar">
+                <button class="bar-btn" id="dtBack" aria-label="返回"><svg class="ic"><use href="#mi-back"/></svg></button>
+                <span class="bar-title ell" id="dtTitle">文档</span>
+                <button class="bar-btn" id="dtMore" aria-label="更多操作"><svg class="ic"><use href="#mi-dots"/></svg></button>
+              </header>
+              <div class="scroll" id="dtScroll"><div class="dp-body" id="dtBody"></div></div>
+            </div>
+          </section>
+
+          <!-- ===== 测验 ===== -->
+          <section class="view" data-view="quiz" hidden>
+            <header class="bar"><span class="bar-title">测验</span></header>
+            <div class="scroll" id="qzScroll">
+              <div class="qz-wrap">
+                <div class="qz-new">
+                  <div class="sc-t">出题 <span class="sc-sub">从知识库资料生成</span></div>
+                  <input type="text" id="qzFocus" placeholder="输入主题，如：Rust 所有权" maxlength="40" autocomplete="off">
+                  <div class="qz-count" id="qzCount">
+                    <button data-n="10" class="on">10 题</button><button data-n="30">30 题</button><button data-n="50">50 题</button>
+                  </div>
+                  <button class="btn primary" id="qzGen" style="width:100%;margin-top:10px"><svg class="ic" style="width:14px;height:14px"><use href="#mi-plus"/></svg>出题</button>
+                  <div class="qz-hint">AI 自动从知识库检索与主题相关的资料出题</div>
+                </div>
+                <div class="grp-h">历史测验</div>
+                <div id="qzList"></div>
+              </div>
+            </div>
+            <!-- 答题页（推入式） -->
+            <div class="detail" id="qzPlay">
+              <header class="bar">
+                <button class="bar-btn" id="qzExit" aria-label="返回列表"><svg class="ic"><use href="#mi-back"/></svg></button>
+                <span class="bar-title ell" id="qzPlayTitle">测验</span>
+              </header>
+              <div class="scroll" id="qzBodyScroll"><div class="qz-play" id="qzBody"></div></div>
+            </div>
+          </section>
+
+          <!-- ===== 设置 ===== -->
+          <section class="view" data-view="settings" hidden>
+            <header class="bar"><span class="bar-title">设置</span></header>
+            <div class="cats" id="setCats">
+              <span class="chip on" data-sec="sec-token">访问口令</span>
+              <span class="chip" data-sec="sec-model">模型服务</span>
+              <span class="chip" data-sec="sec-source">数据来源</span>
+              <span class="chip" data-sec="sec-about">关于</span>
+            </div>
+            <div class="scroll" id="setScroll">
+              <div class="set-wrap">
+
+                <div class="set-head">
+                  <h1>设置</h1>
+                  <div class="seg" id="themeSeg">
+                    <button data-t="light">浅色</button><button data-t="dark">深色</button><button data-t="auto">自动</button>
+                  </div>
+                </div>
+
+                <div class="stat-card">
+                  <div class="st-row">
+                    <span class="st-item"><span class="st-dot on"></span>向量库</span>
+                    <span class="st-item"><span class="st-dot on"></span>嵌入</span>
+                    <span class="st-item"><span class="st-dot on"></span>问答</span>
+                    <span class="st-item"><span class="st-dot on"></span>OCR</span>
+                  </div>
+                  <div class="st-meta">128 篇文档 · 3,642 块 · 监听中</div>
+                </div>
+
+                <section class="set-card" id="sec-token">
+                  <div class="sc-t">访问口令</div>
+                  <div class="sc-d">本服务的门禁，非模型 key。仅保存在此设备。</div>
+                  <input type="password" placeholder="服务端 .env 的 API_KEYS 之一">
+                </section>
+
+                <section class="set-card" id="sec-model">
+                  <div class="sc-t">模型服务 <span class="sc-sub">嵌入 · 问答 · 重排</span></div>
+                  <details class="acc" open>
+                    <summary>嵌入（语义检索）</summary>
+                    <div class="fld"><label>Base URL</label><input value="https://open.bigmodel.cn/api/paas/v4"></div>
+                    <div class="fld"><label>API Key</label><input type="password" value="••••••••••••"></div>
+                    <div class="fld"><label>模型</label><input value="embedding-3"></div>
+                    <div class="fld"><label>向量维度<small>换模型后需重建索引</small></label><input type="number" value="3072" step="256"></div>
+                  </details>
+                  <details class="acc" open>
+                    <summary>问答（GLM）</summary>
+                    <div class="fld"><label>Base URL</label><input value="https://open.bigmodel.cn/api/paas/v4"></div>
+                    <div class="fld"><label>API Key</label><input type="password" value="••••••••••••"></div>
+                    <div class="fld"><label>模型</label><input value="glm-4.6"></div>
+                  </details>
+                  <details class="acc">
+                    <summary>重排（可选）</summary>
+                    <div class="fld"><label>Base URL</label><input placeholder="https://…"></div>
+                    <div class="fld"><label>API Key</label><input type="password" placeholder="留空关闭"></div>
+                    <div class="fld"><label>模型</label><input placeholder="BAAI/bge-reranker-v2-m3"></div>
+                  </details>
+                </section>
+
+                <section class="set-card" id="sec-source">
+                  <div class="sc-t">数据来源</div>
+                  <div class="fld">
+                    <label>监听目录<small>保存后立即生效并自动扫描</small></label>
+                    <div class="wd-chips">
+                      <span class="wd-chip">~/Documents/笔记<button aria-label="移除">✕</button></span>
+                      <span class="wd-chip">~/Downloads/资料<button aria-label="移除">✕</button></span>
+                    </div>
+                    <button class="btn" id="btnPickDir" style="margin-top:10px">选择目录</button>
+                  </div>
+                  <div class="fld" style="margin-top:14px">
+                    <label>B 站登录<small>扫码获取 SESSDATA，用于视频 AI 字幕</small></label>
+                    <input type="password" id="sessIn" placeholder="扫码登录后自动填入">
+                    <button class="btn" id="btnQr" style="margin-top:10px">扫码登录 B 站</button>
+                  </div>
+                  <div class="fld" style="margin-top:14px">
+                    <label>图像理解模型<small>理解图表含义；留空关闭</small></label>
+                    <input placeholder="glm-4v-flash（免费）">
+                  </div>
+                </section>
+
+                <section class="set-card" id="sec-about">
+                  <div class="sc-t">关于</div>
+                  <div class="about-grid">
+                    <span>版本</span><span>v0.12 · 手机原型</span>
+                    <span>文档 / 分块</span><span>128 篇 / 3,642 块</span>
+                    <span>目录监听</span><span>运行中</span>
+                    <span>监听路径</span><span style="word-break:break-all">~/Documents/笔记</span>
+                    <span>数据</span><span>全部保存在本机</span>
+                  </div>
+                </section>
+
+              </div>
+            </div>
+            <div class="savebar" id="saveBar">
+              <span id="dirtyHint">有未保存的修改</span>
+              <button class="btn ghost" id="btnRebuild">重建索引</button>
+              <button class="btn primary" id="btnSave">保存全部</button>
+            </div>
+          </section>
+
+        </div>
+
+        <!-- 底部标签栏 -->
+        <nav class="tabbar" aria-label="主导航">
+          <button class="tab on" data-v="ask"><svg class="ic"><use href="#mi-chat"/></svg>问答</button>
+          <button class="tab" data-v="docs"><svg class="ic"><use href="#mi-folder"/></svg>文档</button>
+          <button class="tab" data-v="quiz"><svg class="ic"><use href="#mi-quiz"/></svg>测验</button>
+          <button class="tab" data-v="settings"><svg class="ic"><use href="#mi-sliders"/></svg>设置</button>
+        </nav>
+
+        <!-- 抽屉遮罩 + 抽屉 -->
+        <div class="scrim" id="scrim"></div>
+        <aside class="drawer" id="drawer" aria-label="最近对话">
+          <div class="dr-search">
+            <svg class="ic"><use href="#mi-search"/></svg>
+            <input id="drSearch" type="text" placeholder="搜索对话…" autocomplete="off">
+          </div>
+          <button class="dr-new" id="btnNewThread"><svg class="ic" style="width:15px;height:15px"><use href="#mi-plus"/></svg>新对话</button>
+          <div class="dr-cap">最近对话</div>
+          <div class="dr-list" id="drList"></div>
+        </aside>
+
+        <!-- 底部弹层 -->
+        <div class="sheet-wrap" id="sheetWrap">
+          <div class="sheet" id="sheet"></div>
+        </div>
+
+        <div class="toasts" id="toasts" aria-live="polite"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 图标 sprite（Lucide 风：24 网格 / 1.8px 描边 / currentColor） -->
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true">
+  <symbol id="mi-menu" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></symbol>
+  <symbol id="mi-chat" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></symbol>
+  <symbol id="mi-folder" viewBox="0 0 24 24"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.7-.9L9.6 3.9A2 2 0 0 0 7.9 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2z"/></symbol>
+  <symbol id="mi-sliders" viewBox="0 0 24 24"><path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h9M17 18h3"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="15" cy="18" r="2"/></symbol>
+  <symbol id="mi-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></symbol>
+  <symbol id="mi-moon" viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></symbol>
+  <symbol id="mi-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></symbol>
+  <symbol id="mi-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="mi-chev-r" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></symbol>
+  <symbol id="mi-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+  <symbol id="mi-refresh" viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 1 15.7-6L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15.7 6L3 16"/><path d="M3 21v-5h5"/></symbol>
+  <symbol id="mi-trash" viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></symbol>
+  <symbol id="mi-upload" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m17 8-5-5-5 5"/><path d="M12 3v12"/></symbol>
+  <symbol id="mi-link" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></symbol>
+  <symbol id="mi-send" viewBox="0 0 24 24"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></symbol>
+  <symbol id="mi-stop" viewBox="0 0 24 24"><rect x="6.5" y="6.5" width="11" height="11" rx="2" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="mi-back" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></symbol>
+  <symbol id="mi-dots" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.3" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.3" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1.3" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="mi-file-text" viewBox="0 0 24 24"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></symbol>
+  <symbol id="mi-file" viewBox="0 0 24 24"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></symbol>
+  <symbol id="mi-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></symbol>
+  <symbol id="mi-eye" viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></symbol>
+  <symbol id="mi-play" viewBox="0 0 24 24"><path d="m7 4 13 8-13 8Z"/></symbol>
+  <symbol id="mi-quiz" viewBox="0 0 24 24"><path d="M22 10 12 5 2 10l10 5 10-5z"/><path d="M6 12.5V17c0 1.7 2.7 3 6 3s6-1.3 6-3v-4.5"/><path d="M22 10v6"/></symbol>
+</svg>
+
+<script>
+"use strict";
+/* ============================================================
+   原型交互（全部为模拟数据，不请求任何后端接口）
+   ============================================================ */
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+const state = {
+  view: "ask", gen: false, genTimer: null, quizPlay: null,
+  threadTitle: "问答", threadKey: null, docSeq: 100,
+  threads: [
+    { t: "RAG 分块策略对比", tm: "2 小时前" },
+    { t: "B 站视频怎么生成 AI 字幕", tm: "昨天" },
+    { t: "Qdrant 换维度要重建索引吗", tm: "周二" },
+    { t: "读书摘录：置身事内", tm: "8/28" },
+    { t: "产品需求文档 v3 改了什么", tm: "8/26" },
+  ],
+};
+
+/* ---------- 模拟数据 ---------- */
+const GROUPS = [["root", "我的资料 · 监听目录"], ["uploads", "uploads · 上传"], ["clips", "clips · 网页摘录"], ["bilibili", "bilibili · 视频笔记"]];
+const DOCS = [
+  { id: 1, g: "root", t: "深度学习入门笔记.md", type: "md", chunks: 42, size: "128 KB", tm: "2 小时前", from: "notes/我的资料" },
+  { id: 2, g: "root", t: "2026 项目复盘.pdf", type: "pdf", chunks: 88, size: "3.2 MB", tm: "昨天", from: "notes/我的资料" },
+  { id: 3, g: "root", t: "读书摘录.md", type: "md", chunks: 26, size: "36 KB", tm: "周一", from: "notes/我的资料" },
+  { id: 4, g: "uploads", t: "产品需求文档 v3.docx", type: "docx", chunks: 54, size: "1.1 MB", tm: "昨天", from: "uploads" },
+  { id: 5, g: "uploads", t: "会议纪要 0830.md", type: "md", chunks: 18, size: "22 KB", tm: "2 天前", from: "uploads" },
+  { id: 6, g: "clips", t: "Transformer 图解", type: "html", url: "jalammar.github.io", chunks: 31, size: "—", tm: "周一", from: "clips" },
+  { id: 7, g: "clips", t: "科技爱好者周刊 · 第 300 期", type: "html", url: "ruanyifeng.com", chunks: 47, size: "—", tm: "8/29", from: "clips" },
+  { id: 8, g: "bilibili", t: "大语言模型是怎么回事（科普）", type: "video", chunks: 35, size: "18 分钟", tm: "昨天", from: "bilibili" },
+  { id: 9, g: "bilibili", t: "论文精读：RAG", type: "video", chunks: 52, size: "42 分钟", tm: "8/27", from: "bilibili" },
+];
+const ICONS = { md: "#mi-file-text", pdf: "#mi-file", html: "#mi-globe", code: "#mi-file-text", text: "#mi-file-text", docx: "#mi-file-text", pptx: "#mi-file-text", xlsx: "#mi-file-text", video: "#mi-play", image: "#mi-eye" };
+
+const CANNED = {
+  q: "知识库里关于 RAG 分块策略有什么结论？",
+  a: "综合库内 3 篇资料，分块策略的结论如下：\n\n**按语义分块优于固定长度**。固定 512 字的切块会把完整段落拦腰截断，检索时上下文缺失；基于标题层级的语义分块在问答准确率上明显更好[1]。\n\n**重叠窗口是廉价保险**。相邻块保留 10–15% 重叠，能缓解边界信息丢失，代价是索引体积增加约一成[2]。\n\n**表格与代码不要拆**。PDF 中的表格被拆块后几乎不可用，应整表作为独立块，并为每块附加文档标题作前缀[1]。\n\n另外，换嵌入模型后需要重建索引，实测 embedding-3 · 3072 维全量重建约 6 分钟[3]。",
+  srcs: [
+    { no: 1, t: "深度学习入门笔记.md", loc: "第 2 节 · 分块", s: "……按标题层级切分后，前 10 问命中率从 61% 提升到 78%，代价是块数增加约三成……" },
+    { no: 2, t: "Transformer 图解（网页）", loc: "§ Overlap", s: "overlap 在 10%–15% 区间收益最稳；超过 20% 后检索噪声明显上升……" },
+    { no: 3, t: "2026 项目复盘.pdf", loc: "第 3 页", s: "embedding-3 · 3072 维，128 篇 / 3,642 块全量重建耗时 6 分 12 秒……" },
+  ],
+};
+
+const SUGGS = [
+  "知识库里关于 RAG 分块策略有什么结论？",
+  "帮我总结《2026 项目复盘》的要点",
+  "B 站视频笔记是怎么生成的？",
+];
+
+/* ---------- 全局：视图切换 ---------- */
+function go(view) {
+  state.view = view;
+  document.body.dataset.view = view;
+  $$(".view").forEach((v) => (v.hidden = v.dataset.view !== view));
+  $$(".tab").forEach((t) => t.classList.toggle("on", t.dataset.v === view));
+  closeDrawer();
+}
+$$(".tab").forEach((t) => t.addEventListener("click", () => go(t.dataset.v)));
+
+/* ---------- Toast ---------- */
+function toast(msg, err) {
+  const el = document.createElement("div");
+  el.className = "toast" + (err ? " err" : "");
+  el.textContent = msg;
+  $("#toasts").appendChild(el);
+  setTimeout(() => { el.classList.add("bye"); setTimeout(() => el.remove(), 320); }, 2200);
+}
+
+/* ---------- 主题 ---------- */
+const themeMeta = $('meta[name="theme-color"]');
+function applyTheme(mode) {
+  const dark = mode === "dark" || (mode === "auto" && matchMedia("(prefers-color-scheme: dark)").matches);
+  document.documentElement.dataset.theme = dark ? "dark" : "";
+  themeMeta.content = dark ? "#1E1E1E" : "#F6F4EF";
+  $("#btnTheme .i-sun").hidden = dark;
+  $("#btnTheme .i-moon").hidden = !dark;
+  $$("#themeSeg button").forEach((b) => b.classList.toggle("on", b.dataset.t === mode));
+  localStorage.setItem("mproto_theme", mode);
+}
+$("#btnTheme").addEventListener("click", () => {
+  const cur = localStorage.getItem("mproto_theme") || "auto";
+  applyTheme(cur === "light" ? "dark" : "light");
+});
+$$("#themeSeg button").forEach((b) => b.addEventListener("click", () => applyTheme(b.dataset.t)));
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
+  if ((localStorage.getItem("mproto_theme") || "auto") === "auto") applyTheme("auto");
+});
+applyTheme(localStorage.getItem("mproto_theme") || "auto");
+
+/* ---------- 抽屉 ---------- */
+function openDrawer() { document.body.classList.add("drawer-open"); $("#scrim").classList.add("on"); }
+function closeDrawer() { document.body.classList.remove("drawer-open"); $("#scrim").classList.remove("on"); }
+$("#btnDrawer").addEventListener("click", openDrawer);
+$("#scrim").addEventListener("click", () => { closeDrawer(); closeSheet(); });
+
+function renderThreads(kw = "") {
+  const list = state.threads.filter((x) => !kw || x.t.toLowerCase().includes(kw.toLowerCase()));
+  $("#drList").innerHTML = list.length
+    ? list.map((x, i) => `<div class="dr-conv ${i === 0 && x.t === state.threadTitle ? "on" : ""}" data-t="${esc(x.t)}">
+        <span class="t">${esc(x.t)}</span><span class="tm">${esc(x.tm)}</span></div>`).join("")
+    : `<div class="docs-empty">没有匹配的对话</div>`;
+  $$("#drList .dr-conv").forEach((r) => r.addEventListener("click", () => loadThread(r.dataset.t)));
+}
+$("#drSearch").addEventListener("input", (e) => renderThreads(e.target.value));
+$("#btnNewThread").addEventListener("click", () => {
+  state.threadTitle = "问答"; state.threadKey = null;
+  $("#askTitle").textContent = "问答";
+  renderEmpty(); closeDrawer(); renderThreads();
+});
+
+function loadThread(title) {
+  state.threadTitle = title; state.threadKey = title;
+  $("#askTitle").textContent = title;
+  $("#docCol").innerHTML = `
+    <div class="q-block first">${esc(title)}</div>
+    <div class="a-block">这是演示环境中的历史对话内容。正式接入后，这里会还原该对话的完整问答记录（含引用来源）。</div>
+    <div class="a-srcs"><div class="a-src"><b>[1]</b><span>${esc(title)} · 对话存档 · 本地</span></div></div>`;
+  closeDrawer(); renderThreads();
+}
+
+/* ---------- 问答：空态 / 发送 / 模拟流式 ---------- */
+function renderEmpty() {
+  $("#docCol").innerHTML = `
+    <div class="empty-wrap">
+      <div class="empty-logo"><svg class="ic"><use href="#mi-chat"/></svg></div>
+      <div class="empty-hi">问点什么</div>
+      <div class="empty-sub">基于你的本地知识库，回答带引用来源</div>
+      <div class="suggs">${SUGGS.map((s) => `<button class="sugg">${esc(s)}</button>`).join("")}</div>
+    </div>`;
+  $$(".sugg").forEach((b) => b.addEventListener("click", () => send(b.textContent)));
+}
+
+const mdFmt = (t) => esc(t)
+  .replace(/\*\*(.+?)\*\*/g, "<b>$1</b>")
+  .replace(/\[(\d)\]/g, '<span class="cite" data-no="$1">[$1]</span>')
+  .replace(/\n\n+/g, "</p><p>").replace(/\n/g, "<br>")
+  .replace(/^/, "<p>").replace(/$/, "</p>");
+const srcRow = (s) => `<div class="a-src" data-no="${s.no}"><b>[${s.no}]</b><span>${esc(s.t)} · ${esc(s.loc)}</span></div>`;
+
+function setGen(on) {
+  state.gen = on;
+  $("#genPill").hidden = !on;
+  $("#btnSend").classList.toggle("stop", on);
+  $("#sendIc").innerHTML = `<use href="#mi-${on ? "stop" : "send"}"/>`;
+}
+
+function send(text) {
+  text = (text || $("#askIn").value).trim();
+  if (!text || state.gen) return;
+  $("#askIn").value = ""; $("#askIn").style.height = "auto";
+  const col = $("#docCol");
+  if (col.querySelector(".empty-wrap")) col.innerHTML = "";
+  const firstQ = !col.querySelector(".q-block");
+  col.insertAdjacentHTML("beforeend", `<div class="q-block ${firstQ ? "first" : ""}">${esc(text)}</div>`);
+
+  if (!state.threadKey) {  // 首问成为对话标题
+    state.threadKey = text;
+    state.threadTitle = text.length > 22 ? text.slice(0, 22) + "…" : text;
+    $("#askTitle").textContent = state.threadTitle;
+    if (state.threads[0]?.t !== state.threadTitle) state.threads.unshift({ t: state.threadTitle, tm: "刚刚" });
+    renderThreads();
+  }
+
+  const ab = document.createElement("div");
+  ab.className = "a-block";
+  ab.innerHTML = `<span class="orb"></span><span class="stream-tmp">正在检索知识库…</span>`;
+  col.appendChild(ab);
+  const scroll = $("#askScroll");
+  const down = () => (scroll.scrollTop = scroll.scrollHeight);
+  down();
+  setGen(true);
+
+  const srcs = CANNED.srcs;
+  let i = 0, started = false;
+  const raw = CANNED.a;
+  state.genTimer = setInterval(() => {
+    if (!started) { started = true; ab.innerHTML = `<span class="stream-tmp"></span>`; }
+    const sp = ab.querySelector(".stream-tmp");
+    i = Math.min(raw.length, i + 2 + Math.floor(Math.random() * 3));
+    sp.textContent = raw.slice(0, i);
+    down();
+    if (i >= raw.length) finish(false);
+  }, 34);
+
+  function finish(stopped) {
+    clearInterval(state.genTimer); setGen(false);
+    ab.innerHTML = mdFmt(stopped ? raw.slice(0, i) + "\n\n（已停止）" : raw);
+    if (!stopped) {
+      const srcsEl = document.createElement("div");
+      srcsEl.className = "a-srcs";
+      srcsEl.innerHTML = srcs.map(srcRow).join("");
+      ab.insertAdjacentElement("afterend", srcsEl);
+      bindCites(srcsEl, ab);
+    }
+    down();
+  }
+  state.stopGen = () => finish(true);
+}
+
+function bindCites(srcsEl, aBlock) {
+  const open = (no) => {
+    const s = CANNED.srcs.find((x) => x.no === Number(no));
+    if (!s) return;
+    openSheet(`
+      <div class="sh-grab"></div>
+      <div class="sh-title">引用来源</div>
+      <div class="sh-sub">对应桌面版右侧「本次引用」栏</div>
+      ${CANNED.srcs.map((x) => `
+        <div class="cite-card" data-no="${x.no}">
+          <div class="no">[${x.no}]</div>
+          <div class="t">${esc(x.t)}</div>
+          <div class="s">${esc(x.s)}</div>
+          <div class="loc"><svg class="ic"><use href="#mi-eye"/></svg>${esc(x.loc)} · 查看原文</div>
+        </div>`).join("")}
+    `);
+    setTimeout(() => {
+      $$("#sheet .cite-card").forEach((c) => c.addEventListener("click", () => {
+        toast("原型示意：跳转到对应片段定位");
+        closeSheet();
+      }));
+    }, 0);
+  };
+  if (aBlock) aBlock.querySelectorAll(".cite").forEach((c) => c.addEventListener("click", () => open(c.dataset.no)));
+  if (srcsEl) srcsEl.querySelectorAll(".a-src").forEach((r) => r.addEventListener("click", () => open(r.dataset.no)));
+}
+
+$("#btnSend").addEventListener("click", () => { state.gen ? state.stopGen?.() : send(); });
+$("#genPill").addEventListener("click", () => state.stopGen?.());
+$("#askIn").addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && !e.shiftKey && !e.isComposing) { e.preventDefault(); if (!state.gen) send(); }
+});
+$("#askIn").addEventListener("input", function () {
+  this.style.height = "auto";
+  this.style.height = Math.min(116, this.scrollHeight) + "px";
+});
+
+/* ---------- 底部弹层 ---------- */
+function openSheet(html) { $("#sheet").innerHTML = html; $("#sheetWrap").classList.add("on"); }
+function closeSheet() { $("#sheetWrap").classList.remove("on"); }
+$("#sheetWrap").addEventListener("click", (e) => { if (e.target === e.currentTarget) closeSheet(); });
+
+/* ---------- 文档列表 ---------- */
+function renderDocs() {
+  const box = $("#docsScroll");
+  const html = GROUPS.map(([k, label]) => {
+    const arr = DOCS.filter((d) => d.g === k);
+    if (!arr.length) return "";
+    return `<div class="grp-h"><span>${label}</span><span class="n">${arr.length}</span></div>` + arr.map((d) => d._gen ? `
+      <div class="gen-row"><span class="orb"></span><span class="t">${esc(d.t)}</span><span class="tm">生成中</span></div>` : `
+      <div class="doc-row" data-id="${d.id}">
+        <span class="doc-ic ${d.type === "video" ? "vid" : ""}"><svg class="ic"><use href="${ICONS[d.type] || "#mi-file"}"/></svg></span>
+        <span class="doc-mid">
+          <div class="doc-t">${esc(d.t)}</div>
+          <div class="doc-meta">${d.type}${d.type === "html" ? " · " + esc(d.url) : ""} · ${d.chunks} 片段 · ${esc(d.tm)}</div>
+        </span>
+        <svg class="ic chev"><use href="#mi-chev-r"/></svg>
+      </div>`).join("");
+  }).join("");
+  box.innerHTML = html || `<div class="docs-empty">还没有文档<br>右上角「链接」入库，或等监听目录扫描</div>`;
+  $$(".doc-row", box).forEach((r) => r.addEventListener("click", () => openDetail(Number(r.dataset.id))));
+}
+
+/* ---------- 文档详情 ---------- */
+function openDetail(id) {
+  const d = DOCS.find((x) => x.id === id);
+  if (!d) return;
+  $("#dtTitle").textContent = d.t;
+  const meta = `${d.type} · ${d.chunks} 片段 · ${d.size} · ${d.tm} · 来自 ${d.from}${d.url ? " · " + d.url : ""}`;
+  const frags = FRAGS[d.id] || [{ h: "片段 1", p: "这是该文档的检索片段示意。正式接入后，这里显示真实的分块文本与标题层级。", s: "…" }];
+  const canRaw = ["pdf", "html", "video", "md"].includes(d.type);
+
+  $("#dtBody").innerHTML = `
+    <div class="dp-head">
+      <span class="doc-ic ${d.type === "video" ? "vid" : ""}"><svg class="ic"><use href="${ICONS[d.type] || "#mi-file"}"/></svg></span>
+      <span>
+        <div class="dp-t">${esc(d.t)}</div>
+        <div class="dp-tags"><span class="dp-type">${d.type}</span><span class="dp-st">已索引</span></div>
+      </span>
+    </div>
+    <div class="dp-meta">${esc(meta)}</div>
+    ${canRaw ? `
+    <div class="dp-tabs">
+      <span class="dp-tab on" data-tab="raw">原文</span>
+      <span class="dp-tab" data-tab="frags">片段</span>
+    </div>
+    <div class="dp-raw" id="dpRaw">${RAW[d.type](d)}</div>
+    <div class="dp-frags" id="dpFrags" hidden>
+      <p class="dp-sec">片段预览 · 前 ${frags.length} / ${d.chunks}</p>
+      ${frags.map((f) => `<div class="frag">${f.h ? `<span class="fh">${esc(f.h)}${f.p ? " · " + f.p : ""}</span>` : ""}${esc(f.s)}</div>`).join("")}
+    </div>` : `
+    <p class="dp-sec">片段预览 · 前 ${frags.length} / ${d.chunks}</p>
+    ${frags.map((f) => `<div class="frag">${f.h ? `<span class="fh">${esc(f.h)}</span>` : ""}${esc(f.s)}</div>`).join("")}`}
+    <div class="dp-note">全文已入库可被检索</div>`;
+
+  $$("#dtBody .dp-tab").forEach((t) => t.addEventListener("click", () => {
+    $$("#dtBody .dp-tab").forEach((x) => x.classList.toggle("on", x === t));
+    $("#dpRaw").hidden = t.dataset.tab !== "raw";
+    $("#dpFrags").hidden = t.dataset.tab !== "frags";
+  }));
+  $("#dtScroll").scrollTop = 0;
+  $("#docDetail").classList.add("on");
+}
+$("#dtBack").addEventListener("click", () => $("#docDetail").classList.remove("on"));
+$("#dtMore").addEventListener("click", () => {
+  const id = DOCS.find((x) => x.t === $("#dtTitle").textContent)?.id;
+  openSheet(`
+    <div class="sh-grab"></div>
+    <div class="sh-title">文档操作</div>
+    <div class="act-row" id="acRe"><svg class="ic"><use href="#mi-refresh"/></svg>重新索引<span class="act-sub">重新解析并嵌入</span></div>
+    <div class="act-row danger" id="acDel"><svg class="ic"><use href="#mi-trash"/></svg>删除<span class="act-sub">连同索引一起删除</span></div>
+  `);
+  setTimeout(() => {
+    $("#acRe").addEventListener("click", () => { closeSheet(); toast("重索引完成（演示）"); });
+    $("#acDel").addEventListener("click", () => {
+      const i = DOCS.findIndex((x) => x.id === id);
+      if (i > -1) DOCS.splice(i, 1);
+      closeSheet(); $("#docDetail").classList.remove("on");
+      renderDocs(); toast("已删除（演示）");
+    });
+  }, 0);
+});
+
+/* 原文示意 */
+const RAW = {
+  pdf: () => `<div class="pg-stack">${[1, 2, 3].map((n) => `
+    <div class="pg"><div class="skel">
+      <i class="w35"></i><i class="w95"></i><i class="w85"></i><i class="w95"></i><i class="w70"></i><i class="w60"></i><i class="w85"></i>
+    </div><div class="pg-no">第 ${n} / 8 页（示意）</div></div>`).join("")}</div>`,
+  html: (d) => `<div class="web-frame">
+    <div class="web-bar"><span class="web-dot"></span><span class="web-dot"></span><span class="web-dot"></span>
+      <span class="web-url">https://${esc(d.url || "example.com")}/article</span></div>
+    <div class="web-body"><div class="skel"><i class="w60"></i><i class="w95"></i><i class="w85"></i><i class="w70"></i><i class="w95"></i></div></div>
+  </div><div class="dp-note">网页快照示意，正式版为 iframe 渲染</div>`,
+  video: (d) => `<div class="player"><svg class="ic"><use href="#mi-play"/></svg></div>
+    <p class="md-p"><b>${esc(d.t)}</b> · ${esc(d.size)}</p>
+    <p class="md-p">这是视频 AI 字幕生成的笔记示意：本期内容围绕检索增强生成展开，先讲了朴素 RAG 的三段式流程（切块、嵌入、检索），再讨论了重排与引用归因对回答可信度的提升，最后对比了几种分块策略在问答任务上的表现差异。</p>
+    <div class="dp-note">正式版：字幕全文 + 按时间轴分块</div>`,
+  md: () => `<p class="md-p"><b>一、为什么要做个人知识库</b></p>
+    <p class="md-p">资料散落在网盘、收藏夹和备忘录里，需要的时候总是找不到。把全文入库、统一检索之后，「记得在哪看过」变成了「一句话问出来」。</p>
+    <p class="md-p"><b>二、分块与检索</b></p>
+    <p class="md-p">按标题层级做语义分块，相邻块保留少量重叠；检索先用向量粗召回，再用重排模型精排，取前若干块交给问答模型组织回答。</p>`,
+};
+const FRAGS = {
+  2: [
+    { h: "三、向量库与索引", p: "第 3 页", s: "embedding-3 输出 3072 维向量，128 篇文档共 3,642 块；全量重建耗时 6 分 12 秒，增量更新平均 4 秒/篇……" },
+    { h: "四、踩坑记录", p: "第 4 页", s: "PDF 双栏排版解析错序，需先做版面分析再切块；表格单独成块并附加表头前缀后，表格类问题命中率显著上升……" },
+    { h: "附录 A · 成本", s: "按当前用量，嵌入与问答合计每月约 ¥12，主要为问答模型调用……" },
+  ],
+  6: [
+    { h: "Self-Attention", s: "每个位置同时关注全句其他位置，用 Q/K/V 三组投影计算注意力权重，是 Transformer 的核心机制……" },
+    { h: "位置编码", s: "自注意力本身不感知顺序，需要额外注入位置信息；图解中用不同颜色标注了位置向量的叠加方式……" },
+  ],
+};
+
+/* ---------- 链接入库（底部弹层） ---------- */
+$("#btnLink").addEventListener("click", () => {
+  openSheet(`
+    <div class="sh-grab"></div>
+    <div class="sh-title">链接入库</div>
+    <div class="sh-sub">粘贴网页或 B 站视频链接，自动抓取 / 生成笔记</div>
+    <div class="sh-input-row">
+      <input id="urlIn" type="url" placeholder="https://… 或 bilibili.com/video/…" autocomplete="off">
+      <button class="btn primary" id="urlGo">入库</button>
+    </div>`);
+  setTimeout(() => {
+    $("#urlIn").focus();
+    $("#urlGo").addEventListener("click", submitUrl);
+    $("#urlIn").addEventListener("keydown", (e) => { if (e.key === "Enter") submitUrl(); });
+  }, 0);
+  function submitUrl() {
+    const v = $("#urlIn").value.trim();
+    if (!/^https?:\/\//.test(v)) { toast("请输入 http(s) 链接", true); return; }
+    let host = "网页"; try { host = new URL(v).hostname; } catch {}
+    const isBili = /bilibili\.com|b23\.tv/.test(host);
+    closeSheet(); toast("已提交抓取任务");
+    const gid = isBili ? "bilibili" : "clips";
+    const idx = DOCS.findIndex((d) => d.g === gid);
+    DOCS.splice(idx < 0 ? DOCS.length : idx + 1, 0, { id: ++state.docSeq, g: gid, t: host, type: isBili ? "video" : "html", url: host, chunks: 0, size: "—", tm: "生成中", from: gid, _gen: true });
+    renderDocs();
+    setTimeout(() => {
+      const d = DOCS.find((x) => x.id === state.docSeq);
+      if (!d) return;
+      d.tm = "刚刚"; d.chunks = 12 + Math.floor(Math.random() * 30);
+      d.t = (isBili ? "视频笔记 · " : "网页摘录 · ") + host;
+      delete d._gen; renderDocs(); toast("已完成入库（演示）");
+    }, 2800);
+  }
+});
+$("#btnUpload").addEventListener("click", () => toast("原型示意：文件选择未接入"));
+
+/* ---------- 设置 ---------- */
+$$("#setCats .chip").forEach((c) => c.addEventListener("click", () => {
+  $$("#setCats .chip").forEach((x) => x.classList.toggle("on", x === c));
+  const el = document.getElementById(c.dataset.sec);
+  el && el.scrollIntoView({ behavior: "smooth", block: "start" });
+}));
+$("#setScroll").addEventListener("input", (e) => {
+  if (e.target.matches("input, textarea")) $("#saveBar").classList.add("dirty");
+});
+$("#btnSave").addEventListener("click", () => { $("#saveBar").classList.remove("dirty"); toast("已保存（原型示意）"); });
+$("#btnRebuild").addEventListener("click", () => toast("重建索引已开始（原型示意）"));
+$("#btnPickDir").addEventListener("click", () => toast("原型：目录浏览仅示意"));
+$$(".wd-chip button").forEach((b) => b.addEventListener("click", () => {
+  b.closest(".wd-chip").remove(); toast("已移除监听目录（原型）");
+}));
+
+/* B 站扫码（模拟） */
+$("#btnQr").addEventListener("click", () => {
+  openSheet(`
+    <div class="sh-grab"></div>
+    <div class="sh-title">扫码登录 B 站</div>
+    <div class="sh-sub">用 B 站 App 扫码，获取 SESSDATA 用于视频 AI 字幕</div>
+    <div class="qr-area">
+      <div class="qr"><div class="grid" id="qrGrid"></div></div>
+      <div class="qr-status" id="qrStatus">等待扫码…（原型示意）</div>
+    </div>`);
+  setTimeout(() => {
+    const g = $("#qrGrid");
+    if (!g) return;
+    g.style.gridTemplateColumns = "repeat(21, 1fr)";
+    let cells = "";
+    for (let y = 0; y < 21; y++) for (let x = 0; x < 21; x++) {
+      const finder = (x < 7 && y < 7) || (x > 13 && y < 7) || (x < 7 && y > 13);
+      const edge = (x % 6 === 0 || y % 6 === 0) && !(x % 6 === 3 || y % 6 === 3);
+      const on = finder ? edge || (x % 6 > 1 && x % 6 < 5 && y % 6 > 1 && y % 6 < 5) : Math.random() < 0.42;
+      cells += `<i class="${on ? "f" : ""}"></i>`;
+    }
+    g.innerHTML = cells;
+    let step = 0;
+    const t = setInterval(() => {
+      const s = $("#qrStatus"); if (!s) { clearInterval(t); return; }
+      if (++step === 2) s.textContent = "已扫码，等待确认（演示）…";
+      if (step >= 4) {
+        clearInterval(t); closeSheet();
+        $("#sessIn").value = "demo_SESSDATA_****（已填入）";
+        $("#saveBar").classList.add("dirty"); toast("已填入 SESSDATA（演示）");
+      }
+    }, 1500);
+  }, 0);
+});
+
+/* ---------- 小测验（同步主应用 v0.18，模拟数据） ---------- */
+const QPOOL = [
+  // RAG / 检索
+  { tag: "rag", type: "single", q: "在问答准确率上表现更好的分块方式是？", options: ["固定 512 字切块", "按标题层级的语义分块", "按句子逐句切块", "随机长度切块"], answer: 1, explanation: "固定长度会把完整段落拦腰截断，检索时上下文缺失；按标题层级切分后，前 10 问命中率从 61% 提升到 78%。", ref: "深度学习入门笔记.md · 第 2 节" },
+  { tag: "rag", type: "single", q: "相邻分块之间建议保留多大的重叠窗口？", options: ["5% 以下", "10–15%", "30–40%", "50% 以上"], answer: 1, explanation: "overlap 在 10%–15% 区间收益最稳；超过 20% 后检索噪声明显上升，索引体积也会膨胀。", ref: "深度学习入门笔记.md · 第 2 节" },
+  { tag: "rag", type: "bool", q: "PDF 中的表格应当整表作为独立分块，而不是与正文混切。", answer: true, explanation: "表格被拆块后几乎不可用；应整表成块，并附加表头/文档标题前缀。", ref: "2026 项目复盘.pdf · 第 4 页" },
+  { tag: "rag", type: "single", q: "更换嵌入模型导致向量维度变化后，必须做什么？", options: ["无需任何操作", "只需重启服务", "重建全部索引", "删除知识库"], answer: 2, explanation: "维度不一致需全量重建索引；embedding-3 · 3072 维、128 篇实测约 6 分钟。", ref: "2026 项目复盘.pdf · 第 3 页" },
+  { tag: "rag", type: "short", q: "简述 RAG 相比直接向大模型提问的优势。", reference: "先从本地知识库检索相关片段，再交给模型组织回答：答案有引用出处可查、能利用私有与最新资料、显著减少模型编造。", points: ["检索增强 有出处", "私有资料", "减少编造"], explanation: "核心是「先检索、后生成」，让回答锚定在你的资料上。", ref: "深度学习入门笔记.md · 第 1 节" },
+  { tag: "rag", type: "bool", q: "先用向量粗召回、再用重排模型精排，能提升引用片段的相关性。", answer: true, explanation: "粗召回保证覆盖面，重排把最相关的片段排到前面再交给问答模型。", ref: "深度学习入门笔记.md · 第 2 节" },
+  { tag: "rag", type: "single", q: "下列哪种内容最适合「整块保留、不参与常规切块」？", options: ["长篇正文段落", "表格与代码", "章节标题", "页眉页脚"], answer: 1, explanation: "表格与代码被切断后语义即损毁，应独立成块并附加前缀。", ref: "2026 项目复盘.pdf · 第 4 页" },
+  // Rust
+  { tag: "rust", type: "single", q: "Rust 中同一时刻最多允许几个可变引用（&mut T）？", options: ["0 个", "1 个", "2 个", "任意多个"], answer: 1, explanation: "可变引用独占；多个不可变引用 &T 可以同时共存。", ref: "Rust 程序设计语言 · 第 4 章" },
+  { tag: "rust", type: "single", q: "值被 move 出变量后再使用原变量，会发生什么？", options: ["正常运行", "编译期报错 borrow of moved value", "运行时 panic", "自动深拷贝一份"], answer: 1, explanation: "所有权转移后原变量失效，误用会在编译期被直接拒绝。", ref: "Rust 程序设计语言 · 第 4 章" },
+  { tag: "rust", type: "bool", q: "Rust 依靠所有权机制在编译期管理内存，不需要垃圾回收器。", answer: true, explanation: "所有权与借用检查在编译期完成，运行时零 GC 开销。", ref: "Rust 程序设计语言 · 第 4 章" },
+  { tag: "rust", type: "short", q: "简述 Rust 中「借用」与「引用」的关系。", reference: "借用指创建引用的行为：&T 是不可变借用、可多个并存；&mut T 是可变借用、独占；借用必须始终有效，由编译器检查。", points: ["&T 不可变借用", "&mut T 独占", "编译期检查"], explanation: "一句话：引用是手段，借用是规则。", ref: "Rust 程序设计语言 · 第 4 章" },
+  // 视频 / B站
+  { tag: "video", type: "single", q: "B 站视频入库生成笔记的链路是？", options: ["下载弹幕做摘要", "yt-dlp 拉字幕 → LLM 整理 → 落盘 clips", "截帧 OCR 识别", "人工整理上传"], answer: 1, explanation: "字幕经 LLM 整理为带 [mm:ss] 时间戳的结构化笔记，走统一索引管线。", ref: "视频笔记管线 · clips" },
+  { tag: "video", type: "bool", q: "没有登录 B 站（无 SESSDATA）时，视频笔记功能完全不可用。", answer: false, explanation: "会写入随机 buvid3 cookie 应对风控，公开视频的字幕仍可拉取。", ref: "视频笔记管线 · clips" },
+  // OCR / 图像
+  { tag: "ocr", type: "single", q: "扫描版 PDF 的文字如何进入索引？", options: ["无法入库", "OCR 视觉转写", "只保存截图", "语音转写"], answer: 1, explanation: "RapidOCR 兜底整页转写，扫描件文字同样可被检索引用。", ref: "南京卓典医学影像 · 扫描页" },
+  { tag: "ocr", type: "bool", q: "图像理解模型可以为库内图片生成文字描述并进入语义索引。", answer: true, explanation: "VLM 描述写入索引后，「图里有什么」这类问题可直接命中。", ref: "设置 · 图像理解" },
+];
+const TOPIC_KEYS = [
+  ["rust|所有权|借用", "rust"],
+  ["rag|检索|分块|向量|嵌入|召回", "rag"],
+  ["b站|bilibili|b23|视频|字幕", "video"],
+  ["ocr|扫描|图像|图片|视觉|识别", "ocr"],
+];
+const shuffle = (a) => { const r = [...a]; for (let i = r.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [r[i], r[j]] = [r[j], r[i]]; } return r; };
+function pickFor(topic, n) {
+  const t = topic.toLowerCase();
+  const tags = TOPIC_KEYS.filter(([k]) => k.split("|").some((w) => t.includes(w))).map(([, tag]) => tag);
+  return shuffle(QPOOL.filter((q) => tags.includes(q.tag))).concat(shuffle(QPOOL.filter((q) => !tags.includes(q.tag)))).slice(0, n);
+}
+let quizSeq = 1, qzGenRow = null;
+const QUIZZES = [
+  { id: "qz-1", title: "RAG 检索与分块", best: 7, qs: pickFor("RAG 检索 分块", 10) },
+  { id: "qz-2", title: "Rust 所有权", best: null, qs: pickFor("rust 所有权", 8) },
+];
+
+function renderQuizList() {
+  const box = $("#qzList");
+  const gen = qzGenRow ? `<div class="gen-row"><span class="orb"></span><span class="t">正在出题：${esc(qzGenRow.title)}</span><span class="tm">生成中</span></div>` : "";
+  const rows = QUIZZES.map((q) => `
+    <div class="qz-row" data-id="${q.id}">
+      <span class="doc-ic"><svg class="ic"><use href="#mi-quiz"/></svg></span>
+      <span class="doc-mid">
+        <div class="doc-t">${esc(q.title)}</div>
+        <div class="doc-meta">${q.qs.length} 题${q.best != null ? ` · 最佳 ${q.best}/${q.qs.length}` : ""} · 知识库出题</div>
+      </span>
+      <button class="qz-del" data-del="${q.id}" aria-label="删除测验"><svg class="ic"><use href="#mi-x"/></svg></button>
+    </div>`).join("");
+  box.innerHTML = gen + rows + (!qzGenRow && !rows ? `<div class="docs-empty">暂无测验<br>先在上方输入主题出一份</div>` : "");
+  $$("#qzList .qz-row").forEach((r) => r.addEventListener("click", (e) => {
+    if (e.target.closest("[data-del]")) return;
+    openQuizPlay(r.dataset.id);
+  }));
+  $$("#qzList [data-del]").forEach((b) => b.addEventListener("click", () => {
+    const i = QUIZZES.findIndex((x) => x.id === b.dataset.del);
+    if (i > -1) QUIZZES.splice(i, 1);
+    renderQuizList(); toast("已删除测验（演示）");
+  }));
+}
+
+$$("#qzCount button").forEach((b) => b.addEventListener("click", () => {
+  $$("#qzCount button").forEach((x) => x.classList.toggle("on", x === b));
+}));
+$("#qzFocus").addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.isComposing) startQuizGen(); });
+$("#qzGen").addEventListener("click", startQuizGen);
+function startQuizGen() {
+  const t = $("#qzFocus").value.trim();
+  if (!t) { toast("先输入一个主题，如「Rust 所有权」", true); return; }
+  const n = Number(($("#qzCount button.on") || { dataset: { n: 10 } }).dataset.n);
+  $("#qzFocus").value = "";
+  toast(`正在围绕「${t.slice(0, 16)}」出题（${n} 题）`);
+  qzGenRow = { title: t };
+  renderQuizList();
+  setTimeout(() => {
+    const qs = pickFor(t, n);
+    QUIZZES.unshift({ id: "qz-" + quizSeq++, title: t, best: null, qs });
+    qzGenRow = null;
+    renderQuizList();
+    toast(qs.length < n ? `已生成 ${qs.length} 题（演示题库有限）` : `已生成 ${qs.length} 题，点击开始答题`);
+  }, 3000);
+}
+
+function openQuizPlay(id) {
+  const quiz = QUIZZES.find((x) => x.id === id);
+  if (!quiz) return;
+  state.quizPlay = { quiz, idx: 0, score: 0, answers: [] };
+  $("#qzPlayTitle").textContent = quiz.title;
+  $("#qzPlay").classList.add("on");
+  renderQzQuestion();
+}
+$("#qzExit").addEventListener("click", () => {
+  $("#qzPlay").classList.remove("on");
+  state.quizPlay = null;
+  renderQuizList();
+});
+
+const qzScoreText = (p) => `${p.score % 1 === 0 ? p.score : p.score.toFixed(1)} / ${p.quiz.qs.length}`;
+function updateQzTop() {
+  const p = state.quizPlay;
+  const el = $("#qzBody .qz-top span");
+  if (el && p) el.textContent = `${p.idx + 1} / ${p.quiz.qs.length} · 得分 ${qzScoreText(p)}`;
+}
+
+function renderQzQuestion() {
+  const p = state.quizPlay;
+  if (!p) return;
+  const qs = p.quiz.qs;
+  if (p.idx >= qs.length) return renderQzDone();
+  const q = qs[p.idx];
+  const prog = Math.round((p.idx / qs.length) * 100);
+  let body = "";
+  if (q.type === "short") {
+    body = `<textarea class="qz-input" id="qzInput" rows="4" placeholder="输入你的答案…"></textarea>
+      <div class="qz-actions"><button class="btn primary qz-next" id="qzSubmit">提交答案</button></div>
+      <div class="qz-feedback" id="qzFeedback" hidden></div>`;
+  } else {
+    const opts = q.type === "bool" ? ["正确", "错误"] : q.options.map((o, i) => `${"ABCD"[i]}. ${o}`);
+    body = opts.map((o, i) => `<button class="qz-opt" data-i="${i}"><span class="qz-key">${q.type === "bool" ? ["✓", "✗"][i] : i + 1}</span><span class="qz-txt">${esc(o)}</span></button>`).join("")
+      + `<div class="qz-feedback" id="qzFeedback" hidden></div>`;
+  }
+  $("#qzBody").innerHTML = `
+    <div class="qz-top"><span>${p.idx + 1} / ${qs.length} · 得分 ${qzScoreText(p)}</span><span class="qz-src-tag">${esc(p.quiz.title)}</span></div>
+    <div class="qz-bar"><span style="width:${prog}%"></span></div>
+    <div class="qz-card">
+      <div class="qz-type">${q.type === "single" ? "单选" : q.type === "bool" ? "判断" : "简答"}${q.ref ? ` · <span class="qz-ref">${esc(q.ref)}</span>` : ""}</div>
+      <div class="qz-stem">${esc(q.q)}</div>
+      ${body}
+    </div>`;
+  $("#qzBodyScroll").scrollTop = 0;
+  if (q.type === "short") {
+    $("#qzSubmit").addEventListener("click", () => submitShort(q));
+  } else {
+    const correct = q.type === "bool" ? (q.answer ? 0 : 1) : q.answer;
+    $$("#qzBody .qz-opt").forEach((b) => b.addEventListener("click", () => gradeObjective(q, Number(b.dataset.i), correct)));
+  }
+}
+
+function gradeObjective(q, pick, correct) {
+  const p = state.quizPlay;
+  if (!p || $("#qzNext")) return;   // 已判分，防重复点击
+  const ok = pick === correct;
+  if (ok) p.score += 1;
+  p.answers.push({ q, ok, pick, correct });
+  updateQzTop();
+  const opts = $$("#qzBody .qz-opt");
+  opts[correct].classList.add("ok");
+  if (!ok) opts[pick].classList.add("bad");
+  opts.forEach((o) => (o.disabled = true));
+  const fb = $("#qzFeedback");
+  fb.hidden = false;
+  fb.innerHTML = `
+    <div class="qz-verdict ${ok ? "ok" : "bad"}">${ok ? "✓ 回答正确" : "✗ 回答错误"}</div>
+    ${q.explanation ? `<div class="qz-exp">${esc(q.explanation)}</div>` : ""}
+    <div class="qz-actions"><button class="btn primary qz-next" id="qzNext">${p.idx + 1 >= p.quiz.qs.length ? "查看成绩" : "下一题"}</button></div>`;
+  $("#qzNext").addEventListener("click", () => { p.idx += 1; renderQzQuestion(); });
+}
+
+function submitShort(q) {
+  const p = state.quizPlay;
+  const input = $("#qzInput");
+  const answer = (input.value || "").trim();
+  if (!answer) { toast("先写点答案再提交"); return; }
+  const btn = $("#qzSubmit");
+  btn.disabled = true; btn.textContent = "判分中…";
+  input.disabled = true;
+  setTimeout(() => {   // 模拟 /quiz/grade：档位 2/1/0 → 1/0.5/0 分
+    const words = (q.points || []).join(" ").split(/[·，,、；; ]+/).filter((w) => w.length > 1);
+    const hit = words.some((w) => answer.includes(w));
+    const score = hit ? 2 : answer.length >= 12 ? 1 : 0;
+    const comment = score === 2 ? "答到关键点，表述清晰。" : score === 1 ? "方向对，但要点不全，可以更具体。" : "未命中参考答案的要点。";
+    p.score += score / 2;
+    p.answers.push({ q, ok: score === 2, partial: score === 1, given: answer, graded: { score, comment, reference: q.reference } });
+    updateQzTop();
+    const fb = $("#qzFeedback");
+    fb.hidden = false;
+    fb.innerHTML = `
+      <div class="qz-verdict ${score === 2 ? "ok" : score === 0 ? "bad" : "mid"}">${score === 2 ? "✓ 命中要点（+1 分）" : score === 1 ? "◐ 部分正确（+0.5 分）" : "✗ 未命中（0 分）"}</div>
+      <div class="qz-exp">评语：${esc(comment)}</div>
+      <div class="qz-exp">参考答案：${esc(q.reference)}</div>
+      <div class="qz-actions"><button class="btn primary qz-next" id="qzNext">${p.idx + 1 >= p.quiz.qs.length ? "查看成绩" : "下一题"}</button></div>`;
+    $("#qzNext").addEventListener("click", () => { p.idx += 1; renderQzQuestion(); });
+  }, 1100);
+}
+
+function renderQzDone() {
+  const p = state.quizPlay;
+  const wrongs = p.answers.filter((a) => !a.ok);
+  const s = Math.round(p.score * 10) / 10;
+  if (p.quiz.best == null || s > p.quiz.best) p.quiz.best = s;   // 模拟 /quiz/result 上报最佳成绩
+  $("#qzBody").innerHTML = `
+    <div class="qz-done">
+      <div class="qzd-score">${qzScoreText(p)}</div>
+      <div class="qzd-sub">${wrongs.length ? `答错 ${wrongs.length} 题` : "全对，漂亮！"}</div>
+      <div class="qz-done-btns">
+        <button class="btn ghost" id="qzRedo">重做</button>
+        <button class="btn ghost" id="qzBack">返回列表</button>
+      </div>
+    </div>
+    ${wrongs.length ? `<div class="set-card"><div class="sc-t">错题回顾（${wrongs.length}）</div>${wrongs.map(quizWrongHtml).join("")}</div>` : ""}`;
+  $("#qzBodyScroll").scrollTop = 0;
+  $("#qzRedo").addEventListener("click", () => {
+    state.quizPlay = { quiz: p.quiz, idx: 0, score: 0, answers: [] };
+    renderQzQuestion();
+  });
+  $("#qzBack").addEventListener("click", () => {
+    $("#qzPlay").classList.remove("on");
+    state.quizPlay = null;
+    renderQuizList();
+  });
+}
+
+function quizWrongHtml(a) {
+  const q = a.q;
+  const line = q.type === "short"
+    ? `参考答案：${esc((a.graded && a.graded.reference) || "")}`
+    : `正确答案：${esc(q.type === "bool" ? (q.answer ? "正确" : "错误") : (q.options || [])[a.correct] || "")}`;
+  return `<div class="qzw">
+    <div class="qzw-q">${esc(q.q)}</div>
+    <div class="qzw-line">${line}</div>
+    ${q.explanation ? `<div class="qz-exp">${esc(q.explanation)}</div>` : ""}
+  </div>`;
+}
+
+/* 桌面预览时的数字键选选项（与主应用一致） */
+document.addEventListener("keydown", (e) => {
+  if (state.view !== "quiz" || e.metaKey || e.ctrlKey || e.isComposing) return;
+  const p = state.quizPlay;
+  if (!p || $("#qzNext")) return;
+  const q = p.quiz.qs[p.idx];
+  if (!q || q.type === "short") return;
+  const n = Number(e.key);
+  if (n >= 1 && n <= (q.type === "bool" ? 2 : 4)) {
+    const b = $(`.qz-opt[data-i="${n - 1}"]`);
+    if (b) b.click();
+  }
+});
+
+/* ---------- 初始化 ---------- */
+renderEmpty();
+renderThreads();
+renderDocs();
+renderQuizList();
+go("ask");
+</script>
+</body>
+</html>

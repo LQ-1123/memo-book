@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.venv/
+
+# 环境变量与密钥
+.env
+
+# 运行时数据（SQLite / 日志 / 备份 / 剪藏 / 金标准题集）
+data/
+watched/
+
+# 打包产物
+build/
+dist/
+resources/ffmpeg/
+
+# macOS
+.DS_Store
+
+# 工具状态 / 临时目录
+.mimosa/
+.v2c/
+.video_agent/
+.zcode/
+
+# Claude 本地配置
+.claude/settings.local.json
