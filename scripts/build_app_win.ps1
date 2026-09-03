@@ -91,13 +91,14 @@ foreach ($need in @(
     "$internal\onnxruntime",
     "$internal\cv2",
     "$internal\pandas",
-    "$internal\magika",
-    "$internal\PIL\_imaging.pyd"
+    "$internal\magika"
 )) {
     if (-not (Test-Path $need)) { throw "产物缺 $need —— 重依赖未收集（查 Python 版本与依赖安装日志）" }
 }
+$pilExt = Get-ChildItem "$internal\PIL" -Filter "_imaging*" -ErrorAction SilentlyContinue | Select-Object -First 1
+if (-not $pilExt) { throw "产物缺 PIL/_imaging 扩展" }
 $pydll = Get-ChildItem "$internal" -Filter "python3*.dll" | Select-Object -First 1
-Write-Host "自检通过；运行时: $($pydll.Name)"
+Write-Host "自检通过；运行时: $($pydll.Name), PIL 扩展: $($pilExt.Name)"
 
 # ---- [5/5] 打包 zip ----
 Write-Host "==> [5/5] 压缩 zip"
