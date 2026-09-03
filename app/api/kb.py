@@ -9,6 +9,7 @@ from fastapi import APIRouter, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, Field
 
+from ..core.watchdirs import effective_watch_dirs
 from ..ingest.parsers import UnsupportedTypeError, detect_type
 from ..ingest.url_fetcher import UrlFetchError
 
@@ -43,12 +44,25 @@ def list_documents(
         doc_type=doc_type, source=source, status=status,
         limit=min(limit, 500), offset=max(offset, 0),
     )
+    # 相对监听目录的子目录（文档树按它建多级目录）；监听目录之外的（uploads/clips 等）为空
+    roots = [str(p).rstrip("/") for p in effective_watch_dirs(request.app.state.cfg, request.app.state.settings)]
+
+    def rel_dir_of(path: str) -> str:
+        if not path:
+            return ""
+        for base in roots:
+            if path.startswith(base + "/"):
+                rel = path[len(base) + 1:]
+                return rel.rsplit("/", 1)[0] if "/" in rel else ""
+        return ""
+
     return {
         "total": total,
         "items": [
             {
                 "id": r["id"], "title": r["title"], "doc_type": r["doc_type"],
                 "source": r["source"], "url": r["url"], "path": r["path"],
+                "rel_dir": rel_dir_of(r["path"] or ""),
                 "status": r["status"], "error": r["error"],
                 "chunk_count": r["chunk_count"], "size": r["size"],
                 "created_at": r["created_at"], "indexed_at": r["indexed_at"],

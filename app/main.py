@@ -56,7 +56,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         retriever = Retriever(db, store, embedder, reranker, settings)
         watcher = WatchManager(settings, pipeline, cfg)
         executor = concurrent.futures.ThreadPoolExecutor(
-            max_workers=2, thread_name_prefix="task"
+            max_workers=4, thread_name_prefix="task"
         )
 
         # 入库即消化：索引完成后后台生成「摘要 + 关键问题」，失败只记日志

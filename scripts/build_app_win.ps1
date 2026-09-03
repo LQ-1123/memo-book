@@ -11,11 +11,14 @@ Write-Host "==> [1/5] 准备 venv 与依赖"
 $Mirror = $env:PIP_INDEX_URL
 if (-not $Mirror) { $Mirror = "https://pypi.tuna.tsinghua.edu.cn/simple" }  # 国内镜像提速
 if (-not (Test-Path ".venv\Scripts\python.exe")) {
-    py -3 -m venv .venv
+    python -m venv .venv   # 用 PATH 里的 python：CI 上=setup-python 指定版本。
+    # 勿用 `py -3`——它选系统注册的最高版本（如 3.14），重依赖无 wheel 会静默装失败
 }
 $PY = ".venv\Scripts\python.exe"
+& $PY --version
 & $PY -m pip install -U pip -q -i $Mirror
 & $PY -m pip install -e . -q -i $Mirror
+if ($LASTEXITCODE -ne 0) { throw "pip install -e . 失败（exit $LASTEXITCODE）——依赖装不全会打出残缺包" }
 & $PY -m pip install pyinstaller -q -i $Mirror
 
 # ---- [2/5] 图标 ----
@@ -25,6 +28,10 @@ Write-Host "==> [2/5] 生成应用图标"
 # ---- [3/5] ffmpeg ----
 Write-Host "==> [3/5] 下载 ffmpeg（npmmirror 国内镜像优先，失败回落 BtbN；已存在则跳过）"
 New-Item -ItemType Directory -Force -Path "resources\ffmpeg\windows" | Out-Null
+# 上次异常残留的同名目录会让后续下载/打包行为诡异，先清掉
+if (Test-Path "resources\ffmpeg\windows\ffmpeg.exe" -PathType Container) {
+    Remove-Item -Recurse -Force "resources\ffmpeg\windows\ffmpeg.exe"
+}
 if (-not (Test-Path "resources\ffmpeg\windows\ffmpeg.exe")) {
     $ok = $false
     # 源1：npmmirror（阿里二进制镜像，单文件直下，体积小速度快）；目录布局不确定，两种都试
@@ -74,6 +81,23 @@ if (Test-Path "build") { Remove-Item -Recurse -Force "build" }
 if (Test-Path "dist") { Remove-Item -Recurse -Force "dist" }
 & $PY -m PyInstaller --noconfirm personal-library.spec
 if ($LASTEXITCODE -ne 0) { throw "PyInstaller 失败" }
+
+# ---- [4.5/5] 产物自检：PyInstaller "成功"不代表依赖进包（曾因 Python 3.14 无 wheel 打出空壳）----
+Write-Host "==> [4.5/5] 产物自检"
+$internal = "dist\personal-library\_internal"
+foreach ($need in @(
+    "$internal\app\static\index.html",
+    "$internal\ffmpeg\windows\ffmpeg.exe",
+    "$internal\onnxruntime",
+    "$internal\cv2",
+    "$internal\pandas",
+    "$internal\magika",
+    "$internal\PIL\_imaging.pyd"
+)) {
+    if (-not (Test-Path $need)) { throw "产物缺 $need —— 重依赖未收集（查 Python 版本与依赖安装日志）" }
+}
+$pydll = Get-ChildItem "$internal" -Filter "python3*.dll" | Select-Object -First 1
+Write-Host "自检通过；运行时: $($pydll.Name)"
 
 # ---- [5/5] 打包 zip ----
 Write-Host "==> [5/5] 压缩 zip"

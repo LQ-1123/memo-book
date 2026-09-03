@@ -21,7 +21,7 @@ CODE_EXTS = {
 MD_EXTS = {".md", ".markdown"}
 HTML_EXTS = {".html", ".htm", ".xhtml"}
 TEXT_EXTS = {".txt", ".text", ".log", ".rst", ".org"}
-OFFICE_EXTS = {".docx": "docx", ".pptx": "pptx", ".xlsx": "xlsx"}
+OFFICE_EXTS = {".docx": "docx", ".pptx": "pptx", ".xlsx": "xlsx", ".xls": "xls"}
 IMAGE_EXTS = {".png", ".jpg", ".jpeg"}
 
 _PDF_SCAN_PAGE_MIN_CHARS = 32  # 少于此字符数的 PDF 页疑似扫描页

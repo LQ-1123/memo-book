@@ -61,3 +61,15 @@ def test_chunk_code_boundaries():
 def test_chunk_draft_defaults():
     d = ChunkDraft(body="x")
     assert d.prefix == "" and d.page is None
+
+
+def test_chunk_code_long_block_no_bloat():
+    """回归：超长代码块按行窗口切分时不得重复膨胀（曾产出 120 倍体积打爆 Qdrant 载荷）。"""
+    lines = [f"fn item_{i}() {{ let v = {i}; let w = v * 2 + 3; }}" for i in range(3000)]
+    code = "\n".join(lines)  # ~150KB、单一超长块
+    drafts = chunk_code(code, "big.rs", target=1100)
+    total = sum(len(d.body) for d in drafts)
+    assert len(drafts) > 10, "超长块应被切开"
+    assert total <= len(code) * 1.6, f"内容膨胀: {total} vs 源 {len(code)}"
+    assert "item_0" in drafts[0].body, "首块内容不丢"
+    assert "item_2999" in drafts[-1].body, "尾块内容不丢"

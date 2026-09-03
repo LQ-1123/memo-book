@@ -29,10 +29,23 @@ def test_detect_office_and_image_types(tmp_path: Path):
     assert detect_type(tmp_path / "a.docx") == "docx"
     assert detect_type(tmp_path / "a.pptx") == "pptx"
     assert detect_type(tmp_path / "a.xlsx") == "xlsx"
+    assert detect_type(tmp_path / "a.xls") == "xls"  # 老格式 Excel
     assert detect_type(tmp_path / "a.png") == "image"
     assert detect_type(tmp_path / "a.jpeg") == "image"
     with pytest.raises(UnsupportedTypeError):
         detect_type(tmp_path / "a.doc")  # 旧版 doc 仍不支持
+
+
+def test_detect_html_code_text_types(tmp_path: Path):
+    """html / 代码 / 纯文本类型钉住（防白名单回归）。"""
+    assert detect_type(tmp_path / "a.html") == "html"
+    assert detect_type(tmp_path / "a.htm") == "html"
+    assert detect_type(tmp_path / "a.py") == "code"
+    assert detect_type(tmp_path / "a.ts") == "code"
+    assert detect_type(tmp_path / "a.rs") == "code"
+    assert detect_type(tmp_path / "a.json") == "code"
+    assert detect_type(tmp_path / "a.yaml") == "code"
+    assert detect_type(tmp_path / "a.txt") == "text"
 
 
 # ---------- 最小 docx 构造 ----------
@@ -70,6 +83,43 @@ def test_docx_converted_to_markdown(tmp_path: Path):
     result = parse_file(p, ocr=None)
     assert result.doc_type == "docx"
     assert "向量检索优化" in result.blocks[0][1]
+
+
+# ---------- xls / html / 代码文件 ----------
+
+def test_xls_converted_to_markdown(tmp_path: Path):
+    xlwt = pytest.importorskip("xlwt")  # 造样本用；读取侧依赖 xlrd（主依赖）
+    p = tmp_path / "实验数据.xls"
+    wb = xlwt.Workbook()
+    ws = wb.add_sheet("结果")
+    ws.write(0, 0, "指标")
+    ws.write(0, 1, "数值")
+    ws.write(1, 0, "命中率")
+    ws.write(1, 1, 0.92)
+    wb.save(str(p))
+    result = parse_file(p, ocr=None)
+    assert result.doc_type == "xls"
+    assert "命中率" in result.blocks[0][1]
+
+
+def test_html_file_parsed_with_title(tmp_path: Path):
+    p = tmp_path / "note.html"
+    p.write_text(
+        "<html><head><title>归档页</title></head>"
+        "<body><h1>归档页</h1><p>正文段落内容。</p></body></html>",
+        encoding="utf-8",
+    )
+    result = parse_file(p, ocr=None)
+    assert result.doc_type == "html"
+    assert result.blocks and "正文段落内容" in result.blocks[0][1]
+
+
+def test_code_file_parsed_as_text(tmp_path: Path):
+    p = tmp_path / "util.py"
+    p.write_text("def add(a, b):\n    return a + b\n", encoding="utf-8")
+    result = parse_file(p, ocr=None)
+    assert result.doc_type == "code"
+    assert "def add" in result.blocks[0][1]
 
 
 # ---------- PDF：pymupdf4llm → MD + 视觉理解 ----------

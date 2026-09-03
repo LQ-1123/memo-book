@@ -826,3 +826,22 @@ body:not([data-view="ask"]) .rightbar { display: none; }
 .ob-in:focus { outline: none; border-color: var(--accent); }
 .ob-2col { display: flex; gap: 8px; }
 .ob-2col .ob-in { min-width: 0; margin-bottom: 14px; }
+
+/* 监听目录分组内的多级目录树 */
+.sb-dir { }
+.sb-dh {
+  height: 26px; display: flex; align-items: center; gap: 6px;
+  padding-right: 8px; border-radius: 6px; font-size: 12.5px; color: var(--text-2); cursor: pointer;
+}
+.sb-dh:hover { background: var(--bg-hover); color: var(--text-1); }
+.sb-dh .chev { width: 11px; height: 11px; color: var(--text-3); transition: transform 0.12s ease; flex: none; }
+.sb-dh.open > .chev { transform: none; }
+.sb-dh:not(.open) > .chev { transform: rotate(-90deg); }
+.sb-dh .t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sb-dh .n { margin-left: auto; font-size: 10.5px; color: var(--text-3); flex: none; }
+.sb-dc[hidden] { display: none; }
+.doc-dir { display: block; font-size: 11px; color: var(--text-3); }
+
+/* 「解析中」任务区：无折叠箭头，线圈球行紧贴 */
+.sb-grp.parsing .sb-gh { color: var(--accent-text); }
+.sb-grp.parsing .sb-gh .t::before { content: ""; display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); margin-right: 6px; vertical-align: 1px; }

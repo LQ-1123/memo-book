@@ -37,7 +37,7 @@ for pkg in ("rapidocr_onnxruntime", "onnxruntime", "jieba", "trafilatura", "open
 
 hiddenimports += collect_submodules("markitdown")      # docx/pptx/xlsx 惰性加载
 # markitdown 各转换器的可选依赖（惰性导入，静态分析收不到；缺了对应格式入库报 MissingDependencyException）
-for _opt in ("openpyxl", "pptx", "mammoth", "markdownify"):
+for _opt in ("openpyxl", "xlrd", "pptx", "mammoth", "markdownify"):
     hiddenimports += collect_submodules(_opt)
 hiddenimports += collect_submodules("webview.platforms")  # pywebview 平台后端按平台动态选择
 hiddenimports += collect_submodules("watchdog")        # 文件监听按平台动态选 observer

@@ -117,13 +117,20 @@ def chunk_code(text: str, path: str, target: int, overlap: int = 80) -> list[Chu
         if len(block) <= target * 1.8:
             chunks.append(block)
         else:
-            window, step = target // 4, max(target // 8, 1)  # 按行窗口
+            # 按行窗口切，窗口间保留 ~overlap 字符的尾部行作重叠。
+            # （曾把 target//4 当"行数"回填 buf，导致内容反复重复、产出膨胀百余倍）
             buf: list[str] = []
             size = 0
             for line in block.splitlines():
                 if size + len(line) > target and buf:
                     chunks.append("\n".join(buf))
-                    tail = buf[-step:] if overlap else []
+                    tail: list[str] = []
+                    tail_chars = 0
+                    for l in reversed(buf):
+                        if tail_chars + len(l) > overlap or len(tail) >= 5:
+                            break
+                        tail.insert(0, l)
+                        tail_chars += len(l) + 1
                     buf = [*tail, line]
                     size = sum(len(x) + 1 for x in buf)
                 else:

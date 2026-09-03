@@ -22,6 +22,7 @@ class Settings(BaseSettings):
     # --- 数据 ---
     data_dir: Path = Path("./data")  # SQLite、URL 剪藏等自管数据
     watch_dirs: str = ""  # 逗号分隔的监听目录
+    ingest_workers: int = 4  # 并发入库线程数（瓶颈=嵌入 API 网络等待；1=串行）
 
     # --- Qdrant ---
     qdrant_url: str = "http://127.0.0.1:6333"

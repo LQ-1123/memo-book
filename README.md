@@ -1,119 +1,158 @@
-# personal-library — 个人 RAG 知识库
+# personal-library
 
-监听本地目录自动入库，提供**混合检索**（BM25 + 向量 + 可选重排）与**带引用的多轮 RAG 问答**的本地服务。
-数据（文档 / SQLite / 向量）全部在本机；仅 embedding、LLM、可选 rerank 与 VLM 调用出网。
+<p align="center">
+  <img src="docs/screenshots/hero.png" alt="personal-library 首页">
+</p>
 
-- 需求与设计决策见 [docs/REQUIREMENTS.md](docs/REQUIREMENTS.md)、[docs/DESIGN.md](docs/DESIGN.md)
-- 网页端：`http://127.0.0.1:8790/`（桌面软件式工作台：问答 / 文档 / 设置，PWA 可安装）
+[中文](README.md) | [English](README.en.md)
 
-## 快速开始
+一个跑在本机的 RAG 知识库。把文档、代码、网页、B 站视频丢进监听目录，它自动解析入库；之后用自然语言提问，回答附带原文引用，点引用能跳回原句。
+
+所有资料、索引、对话记录都存在本机。出网的只有模型调用：embedding、LLM，可选的 rerank 和图像理解。
+
+## 解决什么问题
+
+资料散落各处：PDF 书、项目源码、剪藏的网页、B 站收藏。找东西靠翻文件夹和文件名搜索，想"对着这些资料提问"更是没有现成工具。
+
+云知识库方案要求把数据传到别人的服务器，模型也不能换。personal-library 反过来：**数据全部留在本机**，模型服务商随便换（任何 OpenAI 兼容接口都行），回答里的每句话都能点回你自己的原文。
+
+## 入库：把整个文件夹扔进去就行
+
+监听目录递归扫描子目录，`node_modules`、`dist`、`__pycache__`、锁文件这些构建产物自动跳过，项目里的 `.gitignore` 规则也生效——所以整个项目文件夹直接扔进去，进来的都是干净的源码和文档。
+
+![文档树](docs/screenshots/docs.png)
+
+支持的类型：md、PDF（扫描页自动 OCR）、docx / pptx / xlsx / xls、html、23 种代码扩展名、txt 等纯文本、图片（VLM 描述）。
+
+入库时文档树顶部有实时的「解析中」队列，每篇文件带线圈球动画和状态，解析完成自动归位到目录树：
+
+![解析中](docs/screenshots/parsing.png)
+
+还有两种入库方式：网页里粘贴链接（普通网页 / CSDN / 公众号正文提取；B 站视频拉字幕生成带时间戳的笔记，无字幕自动语音转写），或直接拖文件上传。
+
+## 提问：回答里的每句话都能点回原文
+
+关键词（BM25）和向量两路召回，RRF 融合，可选 SiliconFlow 重排。回答流式输出，结论标注 `[n]` 引用角标，右栏按文档聚合展示来源，点击定位到原文片段。
+
+![问答](docs/screenshots/ask.png)
+
+支持多轮追问（理解指代）；问「知识库里有哪些文档」「最近入库了什么」这类问题走元问题路由，直接查库秒答，不浪费一次模型调用。
+
+## 文档管理
+
+侧栏按监听目录的真实层级展示多级可折叠目录树；每篇文档入库后自动生成 AI 摘要和 3 个关键问题；PDF 按页预览，Office / 代码 / 网页显示转换后的 Markdown。
+
+![预览](docs/screenshots/preview.png)
+
+## 测验
+
+指定主题从知识库选材出题：单选 / 判断 / 简答，即时判分，简答题由 LLM 评分给评语，每题带原文出处，支持错题回顾和最佳成绩记录。
+
+![测验](docs/screenshots/quiz.png)
+
+## 手机访问：扫一个二维码
+
+电脑端「设置 → 手机访问」出二维码，手机相机扫码即打开同一个知识库——口令藏在二维码链接里自动写入手机，之后永久免输入。
+
+![手机访问](docs/screenshots/settings.png)
+
+## 桌面版：双击就用
+
+macOS 和 Windows 安装包内嵌向量库和静态 ffmpeg，目标机器不需要 Python、Docker、ffmpeg。首次启动弹出配置向导：选模型服务商（智谱 / 硅基流动 / 自定义 OpenAI 兼容），粘贴 API Key 即可。
+
+- macOS：`bash scripts/build_app.sh` 本地构建 .app 和 DMG
+- Windows：推送 tag 后 GitHub Actions 自动构建，到 Release 下载 `personal-library-win64.zip`
+
+详见 [docs/DESKTOP.md](docs/DESKTOP.md)。
+
+## 快速开始（服务器形态）
+
+需要 Python 3.11+ 和 Docker。
 
 ```bash
-# 0) 依赖（已装好可跳过）
+git clone https://github.com/LQ-1123/personal-library.git
+cd personal-library
+
 python3 -m venv .venv
-.venv/bin/pip install -e ".[dev]"   # 或按 pyproject.toml 手动安装
+.venv/bin/pip install -e .
 
-# 1) 启动 Qdrant（向量库；国内拉不动可换 docker.m.daocloud.io 镜像）
-docker compose up -d
+# 启动 Qdrant（向量库）
+docker run -d --name library-qdrant -p 6333:6333 \
+  -v qdrant_storage:/qdrant/storage qdrant/qdrant:latest
 
-# 2) 配置
-cp .env.example .env   # 填 API_KEYS（自定随机串）、WATCH_DIRS、智谱 EMBED_API_KEY/LLM_API_KEY
+# 配置
+cp .env.example .env
+# 编辑 .env：填 WATCH_DIRS（要监听的目录）、EMBED_API_KEY、LLM_API_KEY（默认智谱）
 
-# 3) 启动服务（或用下方 launchd 常驻方式）
+# 启动
 .venv/bin/python -m app.main
 ```
 
-把文档放进 `WATCH_DIRS` 目录即自动入库（增量监听 + 启动/周期对账）；删除文件即同步删除索引。
-也可以在网页端直接**上传文件**、**粘贴网页 / B站链接**入库。
+打开 `http://127.0.0.1:8790/`。macOS 上用 `scripts/maintain.py install` 可以装成 launchd 常驻服务（登录自启、崩溃自动拉起、每日自动备份）。
 
-## 桌面版（免环境客户端）
+## 配置
 
-打包成双击即用的 .app / .exe：**目标机器无需 Python、Docker、ffmpeg**（向量库内嵌，静态 ffmpeg 随包）。
+`.env` 或数据目录 `.env`（网页「设置」里也能改，保存即热生效）：
 
-```bash
-bash scripts/build_app.sh        # macOS → dist/personal-library.app
-# Windows 在 Windows 机器上: .\scripts\build_app_win.ps1
-```
+| 变量 | 说明 | 默认 |
+|---|---|---|
+| `WATCH_DIRS` | 监听目录，逗号分隔，递归扫描 | — |
+| `EMBED_API_KEY` / `LLM_API_KEY` | 嵌入 / 问答模型 key（智谱） | — |
+| `EMBED_MODEL` / `LLM_MODEL` | 模型名 | embedding-3 / glm-4.6 |
+| `EMBED_DIM` | 向量维度 | 2048 |
+| `API_KEYS` | 访问口令（本机免填；桌面版自动生成） | — |
+| `APP_HOST` / `APP_PORT` | 监听地址 / 端口 | 0.0.0.0 / 8790 |
+| `QDRANT_EMBEDDED` | 桌面版内嵌向量库 | 桌面 true / 服务器 false |
+| `INGEST_WORKERS` | 并发入库线程数 | 4 |
 
-数据目录、签名分发、局域网访问、迁移备份见 [docs/DESKTOP.md](docs/DESKTOP.md)。
+完整字段见 `.env.example` 与 `app/config.py`。
 
-## 功能一览
+## API
 
-| 能力 | 说明 |
-|---|---|
-| 混合检索 | BM25（jieba FTS5）+ 向量（Qdrant）RRF 融合，可选 SiliconFlow 重排 |
-| 多轮问答 | `/ask` 支持携带 `history`，追问可理解指代；SSE 流式；回答带 `[n]` 引用角标 |
-| 引用面板 | 右栏**按文档聚合**展示引用来源，点击角标定位正文原句 |
-| 元问题路由 | 问「知识库里有哪些文档 / 最近入库了什么」直接查文档表秒答，不走向量检索 |
-| 对话持久化 | 对话存服务端 SQLite（`GET/POST/DELETE /api/v1/threads`），localStorage 仅作离线缓存 |
-| 入库即消化 | 每篇文档索引完成后自动生成「摘要 + 3 个关键问题」，展示在文档列表与预览；也可手动/批量生成 |
-| 小测验 | 从任意文档出题（单选 + 判断 + 简答 AI 判分），题量 10/30/50、可指定主题重点，每题解析带原文出处，结束有错题回顾与重做（`#/quiz` 第四视图；文档预览也有「出题测验」入口） |
-| PDF | 虚拟化按页预览；扫描页自动 OCR；含图页可走 VLM 图像理解 |
-| Office | docx / pptx / xlsx 转 Markdown 后按标题感知分块入库 |
-| URL 剪藏 | 正文落盘 `data/clips/`，哈希去重、增量更新；CSDN/公众号文章开箱即用 |
-| B站视频笔记 | 粘贴 bilibili / b23.tv 链接 → 拉字幕 → LLM 整理成带 `[mm:ss]` 时间戳的结构化笔记入库；支持扫码登录获取 AI 字幕（SESSDATA 仅存本机） |
-| 无字幕视频兜底 | B站无字幕视频自动走 **ASR 语音转写**（智谱 GLM-ASR，≤28s/块分块转写，15 分钟/条上限）→ LLM 笔记入库（需 ffmpeg） |
-| PWA | 可安装；安卓可把链接「分享」进应用直接入库（需 HTTPS，推荐 Tailscale） |
-
-## API（前缀 `/api/v1`，除 health 外需 `X-API-Key` 头）
+前缀 `/api/v1`，除 `GET /health` 外需要 `X-API-Key` 头。常用接口：
 
 | 方法 | 路径 | 说明 |
 |---|---|---|
-| GET | `/health` | 依赖状态与索引统计（免认证） |
-| GET | `/search?q=关键词&doc_type=md&source=watch&topk=10` | 混合检索，返回片段+出处 |
-| POST | `/ask` | `{"question": "...", "stream": true, "history": [{"role":"user","content":"..."},...]}`；stream=true 为 SSE |
-| GET / POST / DELETE | `/threads`（DELETE 用 `?id=`） | 对话列表 / upsert / 删除 |
-| POST | `/quiz` | body `{"doc_id","count":10|30|50,"focus"?}`，异步出题（202 任务） |
-| GET | `/quiz` · `/quiz?id=` | 测验历史 / 单套完整题目（简答参考答案判分后才下发） |
-| POST | `/quiz/grade` | body `{"id","index","answer"}`，简答题 LLM 判分（2/1/0 档） |
-| POST | `/quiz/result` · DELETE `/quiz?id=` | 提交得分（更新最好成绩）/ 删除测验 |
-| GET | `/documents` · `/documents/{id}` | 列表 / 详情（含 chunk 预览与 `summary` 摘要字段） |
-| DELETE | `/documents/{id}` | 删除文档及索引 |
-| POST | `/documents/{id}/reindex` | 强制重新解析索引 |
-| POST | `/documents/digest` | body `{"doc_id": "..."}`，生成/重生成该文档摘要（202 任务） |
-| POST | `/documents/digest-missing` | 为所有缺摘要的已索引文档批量生成 |
-| POST | `/ingest/url` · `/ingest/video` · `/ingest/upload` | 网页 / B站视频 / 文件上传入库（异步任务） |
-| GET | `/tasks/{id}` · `/tasks` · POST `/ingest/reconcile` | 任务状态 / 手动对账 |
-| GET / PUT | `/config` · `/fs/dirs` · `/bilibili/qr/*` | 运行时配置 / 服务端目录浏览 / B站扫码 |
+| GET | `/health` | 依赖状态与索引统计 |
+| GET | `/search?q=关键词&topk=10` | 混合检索，返回片段与出处 |
+| POST | `/ask` | `{"question":"...","stream":true,"history":[...]}`，stream 为 SSE |
+| GET / POST / DELETE | `/threads` | 对话持久化 |
+| GET / DELETE | `/documents`、`/documents/{id}` | 文档列表 / 详情 / 删除 |
+| POST | `/documents/{id}/reindex` | 强制重建索引 |
+| POST | `/ingest/url`、`/ingest/video`、`/ingest/upload` | 链接 / 视频 / 文件入库 |
+| POST | `/ingest/reconcile` | 手动全量对账 |
+| GET / PUT | `/config` | 运行时配置热更新 |
+| GET | `/pair/url` | 局域网扫码配对链接 |
 
-SSE 事件序列：`{"type":"sources",...}` → `{"type":"delta","text":...}*` → `{"type":"done"}`。
+SSE 事件序列：`sources` → `delta`* → `done`。完整列表见 `app/api/`。
 
-## 行为说明
+## 已知限制
 
-- **未配置智谱 key 时**：关键词检索照常可用，向量检索与问答不可用（/health 显示 embed/llm 为 false）
-- **快手**：当前 yt-dlp 已移除快手 extractor，暂不支持（粘贴快手链接会得到明确提示）
-- ASR 转写复用智谱 key、按量计费；抖音/快手视频链接会给出明确的「不支持」提示
-- **排障**：`kill -USR1 <服务pid>` 把全部线程栈转储到 `data/logs/stack_dump.log`（卡死类问题定位）
-- **同内容移动/重命名**：按内容哈希识别，只改路径不重新嵌入
-- **大文件**：直接放监听目录，无 HTTP 上传限制；未变更文件（size+mtime 未变）不重复解析
-- **摘要失败不阻塞入库**：LLM 不可用时摘要跳过，可在预览页手动补生成
-
-## 常驻运行与备份
-
-服务通过 macOS launchd（用户级 LaunchAgent）常驻：登录自启、崩溃约 10 秒内自动拉起、每日 03:03 自动维护。
-
-```bash
-.venv/bin/python scripts/maintain.py install    # 安装并加载（幂等）
-.venv/bin/python scripts/maintain.py status     # 查看服务状态
-.venv/bin/python scripts/maintain.py backup     # 手动备份（data/backups/，保留 7 份）
-```
-
-- 服务日志在 `data/logs/`；备份内容为 SQLite（唯一事实源）+ 运行时配置
-- **Qdrant 向量不备份**——恢复后 `POST /api/v1/ingest/reconcile?force=true` 全量重嵌入重建
-- 改代码后重载：`launchctl kickstart -k gui/$(id -u)/com.personal-library.server`
-
-## 测试与检索质量评估
-
-```bash
-.venv/bin/python -m pytest tests/ -q                # 离线单元测试（全 mock，不触网）
-.venv/bin/python scripts/eval_rag.py --token <key>  # 金标准问答集检索命中评估（需服务在线）
-```
-
-金标准题集在 `data/golden_questions.json`（question + expected 标题子串），随你的库内容自行维护。
+- 旧版 `.doc`（Word 97-2003）不支持，转存 .docx 即可
+- 快手视频不支持（yt-dlp 已移除 extractor），会给出明确提示
+- B 站无字幕视频的语音转写按量计费（智谱 GLM-ASR），单条上限 15 分钟
+- iOS Safari 不支持 PWA 分享入库（安卓 Chrome 可用）
+- 未签名的桌面安装包：macOS 首次打开需右键 → 打开，Windows SmartScreen 会提示
+- 大库（数十万片段）查询速度无压力，但相似内容多了建议配 rerank 提升排序
 
 ## 故障排查
 
-- **Qdrant 拉取失败**（网络）：`docker-compose.yml` 镜像改为 `docker.m.daocloud.io/qdrant/qdrant:latest`
-- **检索无结果**：看 `/api/v1/health` 的 documents/chunks 是否增长
-- **问答 503**：未配置 `LLM_API_KEY`（或在网页「设置」里填，热生效）
-- **局域网访问不了**：确认 `APP_HOST=0.0.0.0` 且防火墙放行 8790 端口
+- **索引失败 / Connection refused**：Qdrant 没在跑。检查 Docker Desktop 是否启动、`docker ps` 里有没有 qdrant 容器
+- **问答 503 / 提示未配置 key**：在「设置 → 模型服务」里填，保存即生效
+- **入库的文件没出现**：看「文档」页顶部的「解析中」区；不支持的类型会被静默跳过
+- **页面样式旧**：Service Worker 缓存，刷新一次即新版
+- **服务卡死**：`kill -USR1 <服务pid>`，线程栈转储在 `data/logs/stack_dump.log`
+
+## 测试
+
+```bash
+.venv/bin/python -m pytest tests/ -q     # 200+ 离线单测（全 mock，不触网）
+```
+
+## 技术栈
+
+FastAPI、SQLite（FTS5）、Qdrant、jieba、PyMuPDF / markitdown（解析）、RapidOCR、智谱 GLM（OpenAI 兼容）、pywebview（桌面壳）、原生 JS 前端（零框架）。
+
+## License
+
+MIT

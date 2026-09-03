@@ -23,7 +23,7 @@ function fmtRel(sec) {
   return Math.floor(d / 86400 / 7) + "周";
 }
 function fmtSize(n) { return n >= 1048576 ? (n / 1048576).toFixed(1) + " MB" : Math.round(n / 1024) + " KB"; }
-const ST_LABEL = { indexed: "已索引", indexing: "索引中", pending: "排队", failed: "失败" };
+const ST_LABEL = { indexed: "已索引", indexing: "解析中", pending: "排队中", failed: "失败" };
 
 const state = {
   token: localStorage.getItem("lib_token") || "",
@@ -870,7 +870,6 @@ function route() {
   $("#viewQuiz").hidden = v !== "quiz";
   $("#viewSettings").hidden = v !== "settings";
   $("#vName").textContent = TITLES[v];
-  $("#btnUpload").hidden = v !== "docs";
   const mLink = $("#mBtnLink");
   if (mLink) mLink.hidden = v !== "docs";
   closeSheetM();
@@ -1352,17 +1351,82 @@ function docSummary(d) {
   try { const o = JSON.parse(d.summary); return o && o.summary ? o : null; } catch { return null; }
 }
 
+/* 监听目录分组：按相对监听目录的子路径建多级折叠树（状态存 localStorage，默认收起） */
+const relDirOf = (d) => d.rel_dir || "";
+function buildDirTree(items) {
+  const root = { dirs: {}, files: [] };
+  for (const d of items) {
+    let node = root;
+    const rel = relDirOf(d);
+    if (rel) {
+      for (const part of rel.split("/")) {
+        node.dirs[part] = node.dirs[part] || { dirs: {}, files: [] };
+        node = node.dirs[part];
+      }
+    }
+    node.files.push(d);
+  }
+  return root;
+}
+const treeFold = () => {
+  try { return JSON.parse(localStorage.getItem("lib_tree_fold") || "{}"); } catch { return {}; }
+};
+const countAll = (n) => n.files.length + Object.values(n.dirs).reduce((s, c) => s + countAll(c), 0);
+
 function renderDocTree() {
   const tree = $("#docTree");
   const groups = Object.fromEntries(GROUPS.map(([k]) => [k, []]));
   state.docsCache.forEach((d) => groups[groupOf(d)].push(d));
   state.activeTasks.forEach((t) => groups[taskGroupOf(t.kind)].push({ _task: t }));
-  tree.innerHTML = GROUPS.map(([k, label]) => {
-    const arr = groups[k];
+  const fold = treeFold();
+  const fileRow = (d, depth) => {
+    if (d._task) {
+      return `<div class="sb-frow gen" style="padding-left:${25 + depth * 14}px">
+        <span class="ai-orb"></span>
+        <span class="t">${esc(d._task.detail || taskTitle(d._task))}</span>
+        <span class="tm busy">生成中</span>
+      </div>`;
+    }
+    const busy = d.status && d.status !== "indexed" && d.status !== "failed";
+    return `<div class="sb-frow ${d.id === state.curDocId ? "on" : ""}" data-id="${esc(d.id)}" style="padding-left:${25 + depth * 14}px">
+      <span class="t">${esc(d.title || d.url || "未命名")}</span>
+      ${busy ? `<span class="tm busy">${ST_LABEL[d.status] || d.status}</span>` : ""}
+    </div>`;
+  };
+  const dirNode = (name, node, key, depth) => {
+    const open = !!fold[key];
+    const kids = Object.keys(node.dirs).sort().map((dn) => dirNode(dn, node.dirs[dn], key ? key + "/" + dn : dn, depth + 1)).join("")
+      + node.files.sort((a, b) => (a.title || "").localeCompare(b.title || "")).map((d) => fileRow(d, depth + 1)).join("");
+    return `<div class="sb-dir">
+      <div class="sb-dh${open ? " open" : ""}" data-key="${esc(key)}" style="padding-left:${8 + depth * 14}px">
+        <svg class="ic chev"><use href="#i-chev-d"/></svg><span class="t">${esc(name)}</span><span class="n">${countAll(node)}</span>
+      </div>
+      <div class="sb-dc"${open ? "" : " hidden"}>${kids}</div>
+    </div>`;
+  };
+  // 解析中的文档（watcher 自动入库/重试中）：线圈球 + 文件名 + 状态，置顶展示
+  const parsing = state.docsCache.filter((d) => d.status === "indexing" || d.status === "pending");
+  const parsingBlock = parsing.length
+    ? `<div class="sb-grp parsing">
+        <div class="sb-gh"><span class="t">解析中</span><span class="n">${parsing.length}</span></div>
+        <div class="sb-gi">${parsing.map((d) => `
+          <div class="sb-frow gen">
+            <span class="ai-orb"></span>
+            <span class="t">${esc(d.title || d.path || "未命名")}</span>
+            <span class="tm busy">${ST_LABEL[d.status] || d.status}</span>
+          </div>`).join("")}</div>
+      </div>`
+    : "";
+  tree.innerHTML = parsingBlock + GROUPS.map(([k, label]) => {    const arr = groups[k];
     if (!arr.length) return "";
-    return `<div class="sb-grp">
-      <div class="sb-gh"><svg class="ic chev"><use href="#i-chev-d"/></svg><span class="t">${label}</span><span class="n">${arr.length}</span></div>
-      <div class="sb-gi">${arr
+    let body;
+    if (k === "root") {
+      const tree_ = buildDirTree(arr.filter((d) => !d._task));
+      body = Object.keys(tree_.dirs).sort().map((dn) => dirNode(dn, tree_.dirs[dn], dn, 0)).join("")
+        + tree_.files.sort((a, b) => (a.title || "").localeCompare(b.title || "")).map((d) => fileRow(d, 0)).join("")
+        + arr.filter((d) => d._task).map((d) => fileRow(d, 0)).join("");
+    } else {
+      body = arr
         .map((d) => {
           if (d._task) {
             return `<div class="sb-frow gen">
@@ -1377,11 +1441,24 @@ function renderDocTree() {
             ${busy ? `<span class="tm busy">${ST_LABEL[d.status] || d.status}</span>` : ""}
           </div>`;
         })
-        .join("")}</div>
+        .join("");
+    }
+    return `<div class="sb-grp">
+      <div class="sb-gh"><svg class="ic chev"><use href="#i-chev-d"/></svg><span class="t">${label}</span><span class="n">${arr.length}</span></div>
+      <div class="sb-gi">${body}</div>
     </div>`;
   }).join("");
   tree.querySelectorAll(".sb-gh").forEach((gh) =>
     gh.addEventListener("click", () => gh.parentElement.classList.toggle("closed"))
+  );
+  tree.querySelectorAll(".sb-dh").forEach((dh) =>
+    dh.addEventListener("click", () => {
+      const key = dh.dataset.key;
+      const f = treeFold();
+      if (f[key]) delete f[key]; else f[key] = 1;
+      localStorage.setItem("lib_tree_fold", JSON.stringify(f));
+      renderDocTree();
+    })
   );
   tree.querySelectorAll(".sb-frow:not(.gen)").forEach((row) => row.addEventListener("click", () => openPreview(safeId(row.dataset.id))));
   tree.querySelectorAll(".sb-frow.gen .ai-orb").forEach((h) => {
@@ -1409,10 +1486,11 @@ function renderMobileDocs(groups) {
       }
       const busy = d.status && d.status !== "indexed" && d.status !== "failed";
       const vid = d.doc_type === "video";
+      const rd = k === "root" ? relDirOf(d) : "";
       return `<div class="m-doc-row" data-id="${esc(d.id)}">
         <span class="doc-ic ${vid ? "vid" : ""}"><svg class="ic"><use href="${ICONS[d.doc_type] || "#i-file"}"></use></svg></span>
         <span class="doc-mid">
-          <div class="doc-t">${esc(d.title || d.url || "未命名")}</div>
+          <div class="doc-t">${rd ? `<span class="doc-dir">${esc(rd)}/</span>` : ""}${esc(d.title || d.url || "未命名")}</div>
           ${busy ? `<div class="doc-meta"><span class="st-busy">${ST_LABEL[d.status] || d.status}</span></div>` : ""}
         </span>
         <svg class="ic chev"><use href="#i-chev-r"/></svg>
@@ -1670,7 +1748,6 @@ function submitUrlValue(raw) {
 
 function bindDocs() {
   const view = $("#viewDocs");
-  $("#btnUpload").addEventListener("click", () => $("#fileIn").click());
   $("#fileIn").addEventListener("change", (e) => { uploadFiles([...e.target.files]); e.target.value = ""; });
   $("#btnAddLink").addEventListener("click", submitLink);
   $("#urlIn").addEventListener("keydown", (e) => {

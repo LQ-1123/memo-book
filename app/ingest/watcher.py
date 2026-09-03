@@ -12,7 +12,6 @@ from watchdog.observers import Observer
 
 from ..config import Settings
 from .pipeline import IngestPipeline, _is_noise
-from .parsers import UnsupportedTypeError
 
 log = logging.getLogger(__name__)
 
@@ -136,16 +135,17 @@ class WatchManager:
                 self._process_batch(batch)
 
     def _process_batch(self, paths: set[str]) -> None:
+        todo: list[Path] = []
         for sp in sorted(paths):
             p = Path(sp)
             if _is_noise(p):
                 continue
-            try:
-                if p.exists():
-                    self.pipeline.ingest_path(p)
-                else:
+            if p.exists():
+                todo.append(p)
+            else:
+                try:
                     self.pipeline.handle_deleted_path(sp)
-            except UnsupportedTypeError:
-                continue
-            except Exception:
-                log.exception("处理文件事件失败: %s", sp)
+                except Exception:
+                    log.exception("处理删除事件失败: %s", sp)
+        if todo:
+            self.pipeline.ingest_many(todo)  # 并发入库（失败已在管线内记日志/标 failed）

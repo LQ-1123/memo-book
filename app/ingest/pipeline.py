@@ -7,7 +7,9 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import threading
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 import jieba
@@ -22,16 +24,72 @@ from .parsers import UnsupportedTypeError, detect_type, parse_file
 
 log = logging.getLogger(__name__)
 
-_HIDDEN_PARTS = {"node_modules", "__pycache__", ".git"}
+# 递归扫描时整树跳过的目录名：构建产物 / 依赖 / IDE（与逐层 .gitignore 互补，见 iter_project_files）
+_SKIP_DIRS = {
+    "node_modules", "__pycache__", ".git",
+    "dist", "build", "out", "coverage", "output",
+    "venv", ".venv", "target", "vendor",
+    ".next", ".nuxt", ".gradle", "DerivedData", "Pods",
+}
+_SKIP_FILE_NAMES = {  # 锁文件等无知识价值的大文件
+    "package-lock.json", "yarn.lock", "pnpm-lock.yaml", "poetry.lock",
+    "Cargo.lock", "composer.lock", ".DS_Store",
+}
+
+_HIDDEN_PARTS = _SKIP_DIRS  # 旧名兼容
 
 
 def _is_noise(path: Path) -> bool:
     for part in path.parts:
-        if part.startswith(".") or part in _HIDDEN_PARTS:
+        if part.startswith(".") or part in _SKIP_DIRS:
             return True
     if path.suffix.lower() in {".tmp", ".swp", ".part", ".download"} or path.name.endswith("~"):
         return True
-    return False
+    return path.name in _SKIP_FILE_NAMES
+
+
+def _rel_under(base_rel: str, rel: str) -> str:
+    """rel 相对 base_rel 的路径（.gitignore 规则相对其所在目录匹配）。"""
+    if not base_rel:
+        return rel
+    prefix = base_rel + "/"
+    return rel[len(prefix):] if rel.startswith(prefix) else rel
+
+
+def iter_project_files(root: Path):
+    """递归产出项目内候选文件：目录级剪枝（默认排除清单）+ 逐层 .gitignore 语义。
+
+    .gitignore 由所在目录的 spec 匹配（相对该目录），子目录继承父级规则链——
+    与 git 的"规则作用于所在子树"语义一致；被忽略的目录整树剪枝不进入。
+    """
+    import pathspec
+
+    root = root.resolve()
+    stack: list[tuple[Path, str, list]] = [(root, "", [])]
+    while stack:
+        abs_dir, rel_dir, specs = stack.pop()
+        gi = abs_dir / ".gitignore"
+        if gi.is_file():
+            try:
+                lines = gi.read_text(encoding="utf-8", errors="replace").splitlines()
+                specs = [*specs, (rel_dir, pathspec.GitIgnoreSpec.from_lines(lines))]
+            except (OSError, ValueError):
+                log.warning("无法解析 .gitignore: %s", gi)
+        for entry in sorted(abs_dir.iterdir()):
+            name = entry.name
+            rel = f"{rel_dir}/{name}" if rel_dir else name
+            if entry.is_dir():
+                if name.startswith(".") or name in _SKIP_DIRS:
+                    continue
+                if any(spec.match_file(_rel_under(base, rel)) for base, spec in specs):
+                    continue
+                stack.append((entry, rel, specs))
+            else:
+                if name.startswith(".") or name in _SKIP_DIRS or name in _SKIP_FILE_NAMES:
+                    continue
+                if any(spec.match_file(_rel_under(base, rel)) for base, spec in specs):
+                    continue
+                yield entry
 
 
 def fts_tokenize(text: str) -> str:
@@ -72,6 +130,8 @@ class IngestPipeline:
         self.cfg = cfg
         self.on_indexed = on_indexed  # 索引完成回调（doc_id），main 里接摘要生成
         self._warned_no_embed = False
+        self._pdf_lock = threading.Lock()   # PyMuPDF 非线程安全：PDF 解析串行化
+        self._store_lock = threading.Lock()  # qdrant local 模式写入串行化（remote 亦无损）
         jieba.initialize()
 
     # ---------- 入库 ----------
@@ -105,7 +165,12 @@ class IngestPipeline:
             sha=sha, size=stat.st_size, mtime=stat.st_mtime, status="indexing",
         )
         try:
-            result = parse_file(path, self.ocr, self.vlm)
+            # PyMuPDF 非线程安全：PDF 解析在并发下需串行；其余类型（markitdown/文本/图片）可并行
+            if doc_type == "pdf":
+                with self._pdf_lock:
+                    result = parse_file(path, self.ocr, self.vlm)
+            else:
+                result = parse_file(path, self.ocr, self.vlm)
             target = self.settings.chunk_target_chars
             overlap = self.settings.chunk_overlap_chars
             if result.doc_type == "md":
@@ -141,8 +206,9 @@ class IngestPipeline:
                 except Exception as e:
                     log.error("嵌入失败（%s），本文档仅入 FTS 索引: %s", path.name, e)
             if vectors:
-                self.store.delete_doc(doc_id)
-                self.store.upsert(doc_id, [c.chunk_id for c in chunk_rows], vectors)
+                with self._store_lock:
+                    self.store.delete_doc(doc_id)
+                    self.store.upsert(doc_id, [c.chunk_id for c in chunk_rows], vectors)
 
             self.db.replace_chunks(doc_id, chunk_rows, fts_bodies)
             self.db.set_document_status(
@@ -163,6 +229,40 @@ class IngestPipeline:
             log.exception("入库失败 %s", path)
             self.db.set_document_status(doc_id, "failed", error=str(e)[:500])
             raise
+
+    def ingest_many(self, paths: list[Path], source: str = "watch", force: bool = False,
+                    workers: int | None = None) -> dict[str, int]:
+        """并发入库多个文件，返回 {indexed, failed}（不支持的类型静默跳过）。
+
+        瓶颈在嵌入 API 的网络等待，线程池即可显著提速；PDF 解析与向量写入
+        内部有锁串行化，线程安全。
+        """
+        stats = {"indexed": 0, "failed": 0}
+        if not paths:
+            return stats
+        n = max(1, int(workers or getattr(self.settings, "ingest_workers", 4)))
+        n = min(n, len(paths))
+        if n <= 1:
+            for p in paths:
+                try:
+                    self.ingest_path(p, source=source, force=force)
+                    stats["indexed"] += 1
+                except UnsupportedTypeError:
+                    pass
+                except Exception:
+                    stats["failed"] += 1
+            return stats
+        with ThreadPoolExecutor(max_workers=n, thread_name_prefix="ingest") as ex:
+            futs = [ex.submit(self.ingest_path, p, source, None, force) for p in paths]
+            for fut in as_completed(futs):
+                try:
+                    fut.result()
+                    stats["indexed"] += 1
+                except UnsupportedTypeError:
+                    pass
+                except Exception:
+                    stats["failed"] += 1
+        return stats
 
     def process_url(self, url: str) -> str:
         """抓取 URL 正文，落盘为剪藏 md，走统一文件管线。返回 doc_id。"""
@@ -232,11 +332,12 @@ class IngestPipeline:
 
         watch_dirs = effective_watch_dirs(self.cfg, self.settings)
         seen: set[str] = set()
+        todo: list[Path] = []
         for root in watch_dirs:
             if not root.exists():
                 log.warning("监听目录不存在: %s", root)
                 continue
-            for path in root.rglob("*"):
+            for path in iter_project_files(root):
                 if not path.is_file() or not self._supported_file(path):
                     continue
                 sp = str(path.resolve())
@@ -250,11 +351,11 @@ class IngestPipeline:
                         and existing["size"] == stat.st_size and existing["mtime"] == stat.st_mtime:
                     stats["skipped"] += 1
                     continue
-                try:
-                    self.ingest_path(path, force=force)
-                    stats["indexed"] += 1
-                except Exception:
-                    stats["failed"] += 1
+                todo.append(path)
+        if todo:
+            result = self.ingest_many(todo, force=force)
+            stats["indexed"] += result["indexed"]
+            stats["failed"] += result["failed"]
         for row, _ in self._watch_docs():
             if row["path"] not in seen:
                 self.handle_deleted_path(row["path"])

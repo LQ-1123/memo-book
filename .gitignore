@@ -36,3 +36,4 @@ paseo.json
 # 本地工具临时文件（Windows 非法文件名，曾致 CI checkout 失败）
 :memory:.ses
 *.ses
+personal-library-win64.zip
