@@ -25,7 +25,7 @@ jobs:
 
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.13"
+          python-version: "3.12"  # rapidocr-onnxruntime 全系要求 <3.13
           cache: pip
 
       - name: 构建（依赖 → 图标 → ffmpeg → PyInstaller → zip）
