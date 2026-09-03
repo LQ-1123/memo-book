@@ -115,7 +115,7 @@ def main() -> None:
         sys.exit(1)
 
     webview.create_window(
-        "个人知识库",
+        "Memo Book",
         _server_url(bs, with_key=True),
         width=1360,
         height=900,

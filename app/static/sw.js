@@ -1,7 +1,7 @@
-/* 个人知识库 Service Worker：外壳缓存（离线可装可开），API 永远走网络 */
+/* Memo Book Service Worker：外壳缓存（离线可装可开），API 永远走网络 */
 "use strict";
 
-const VERSION = "app-shell-v59";
+const VERSION = "app-shell-v60";
 const SHELL = [
   "/",
   "/css/app.css",

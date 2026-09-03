@@ -88,6 +88,7 @@ if os.name != "nt":
         info_plist={
             "NSHighResolutionCapable": True,
             "LSApplicationCategoryType": "public.app-category.productivity",
-            "NSHumanReadableCopyright": "© 2026 personal-library",
+            "CFBundleDisplayName": "Memo Book",
+            "NSHumanReadableCopyright": "© 2026 Memo Book",
         },
     )

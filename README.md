@@ -1,4 +1,4 @@
-# personal-library
+# Memo Book
 
 <p align="center">
   <img src="docs/screenshots/hero.png" alt="personal-library 首页">
@@ -70,7 +70,7 @@ macOS 和 Windows 安装包内嵌向量库和静态 ffmpeg，目标机器不需�
 需要 Python 3.11+ 和 Docker。
 
 ```bash
-git clone https://github.com/LQ-1123/personal-library.git
+git clone https://github.com/LQ-1123/memo-book.git
 cd personal-library
 
 python3 -m venv .venv

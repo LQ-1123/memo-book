@@ -26,8 +26,11 @@ class VectorStore:
             log.info("Qdrant 内嵌模式，存储目录: %s", path)
             self._client = QdrantClient(path=str(path), check_compatibility=False)
         else:
+            # prefer_grpc：gRPC（6334）不读 macOS 系统代理，绕开 httpx 被
+            # 系统级代理劫持 127.0.0.1 请求导致 502/超时的问题；体积也更小
             self._client = QdrantClient(
-                url=settings.qdrant_url, timeout=10, check_compatibility=False
+                url=settings.qdrant_url, timeout=10, check_compatibility=False,
+                prefer_grpc=True,
             )
 
     @property

@@ -1,4 +1,4 @@
-# personal-library
+# Memo Book
 
 <p align="center">
   <img src="docs/screenshots/hero.png" alt="personal-library home">
@@ -6,7 +6,7 @@
 
 [中文](README.md) | [English](README.en.md)
 
-A self-hosted RAG knowledge base. Drop documents, code, web pages, or Bilibili videos into a watched folder — they get parsed and indexed automatically. Then ask questions in plain language; every answer cites the source, and each citation links back to the exact text.
+Memo Book is a self-hosted RAG knowledge base. Drop documents, code, web pages, or Bilibili videos into a watched folder — they get parsed and indexed automatically. Then ask questions in plain language; every answer cites the source, and each citation links back to the exact text.
 
 Everything lives on your machine: documents, SQLite index, vectors, chat history. The only network calls are to model providers — embeddings, LLM, and optionally rerank and vision.
 
@@ -70,7 +70,7 @@ Data directory: `~/Library/Application Support/personal-library/` on macOS, `%AP
 Requires Python 3.11+ and Docker.
 
 ```bash
-git clone https://github.com/LQ-1123/personal-library.git
+git clone https://github.com/LQ-1123/memo-book.git
 cd personal-library
 
 python3 -m venv .venv

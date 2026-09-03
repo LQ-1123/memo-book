@@ -1,7 +1,7 @@
 {
-  "name": "个人知识库",
-  "short_name": "知识库",
-  "description": "个人 RAG 知识库：检索与带引用的智能问答",
+  "name": "Memo Book",
+  "short_name": "Memo Book",
+  "description": "Memo Book：检索与带引用的智能问答",
   "lang": "zh-CN",
   "start_url": "/",
   "scope": "/",
